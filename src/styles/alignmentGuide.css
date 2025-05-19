@@ -1,0 +1,52 @@
+.alignment-guide {
+    animation: guideAppear 0.2s ease-out;
+    box-shadow: 0 0 4px rgba(33, 150, 243, 0.4);
+}
+
+.alignment-guide::before,
+.alignment-guide::after {
+    content: '';
+    position: absolute;
+    background-color: #2196F3;
+}
+
+/* Vertical guide decorations */
+.alignment-guide[data-type="vertical"]::before,
+.alignment-guide[data-type="vertical"]::after {
+    width: 4px;
+    height: 4px;
+    left: -1.5px;
+}
+
+.alignment-guide[data-type="vertical"]::before {
+    top: 0;
+}
+
+.alignment-guide[data-type="vertical"]::after {
+    bottom: 0;
+}
+
+/* Horizontal guide decorations */
+.alignment-guide[data-type="horizontal"]::before,
+.alignment-guide[data-type="horizontal"]::after {
+    width: 4px;
+    height: 4px;
+    top: -1.5px;
+}
+
+.alignment-guide[data-type="horizontal"]::before {
+    left: 0;
+}
+
+.alignment-guide[data-type="horizontal"]::after {
+    right: 0;
+}
+
+@keyframes guideAppear {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+} 
