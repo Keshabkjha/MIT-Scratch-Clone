@@ -6,6 +6,14 @@ A modern web-based implementation of MIT's Scratch programming environment, desi
 
 This project is a clone of MIT's Scratch programming environment, reimagined with modern web technologies. It provides a visual programming interface where users can create interactive stories, games, and animations by dragging and dropping code blocks.
 
+![image](https://github.com/user-attachments/assets/ad85645c-2aca-4965-9512-1017770da4aa)
+![image](https://github.com/user-attachments/assets/4e61f5ce-8f61-43a7-b029-cb95c3c40a8c)
+![image](https://github.com/user-attachments/assets/dc63b4d4-5356-47d9-8a2b-18024e58d4d5)
+
+
+
+
+
 ## Video presentation
 
 [Video presentation](https://drive.google.com/file/d/1yXdp5MaNA3PSJwie4YRWN4acRwVjkic_/view?usp=sharing)
