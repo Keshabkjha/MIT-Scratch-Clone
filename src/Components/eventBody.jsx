@@ -21,6 +21,8 @@ import AlignmentGuide from './AlignmentGuide';
 import '../styles/collisionEffects.css';
 import { playSound, initAudio } from '../utils/sounds';
 import ActionHistoryFooter from './ActionHistoryFooter';
+import { FaChartBar } from 'react-icons/fa';
+import AnalyticsDashboard from './AnalyticsDashboard';
 
 export const EventBody = (props) => {
     const {
@@ -92,6 +94,8 @@ export const EventBody = (props) => {
     const [isPaused, setIsPaused] = React.useState(false);
     const [spriteFilter, setSpriteFilter] = React.useState('all');
     const replayTimeoutRef = React.useRef(null);
+
+    const [showAnalytics, setShowAnalytics] = useState(false);
 
     console.log("rendering...");
 
@@ -1355,9 +1359,7 @@ export const EventBody = (props) => {
                         backgroundPosition: 'center',
                         backgroundRepeat: 'no-repeat',
                         position: 'relative',
-                        width: '100%',
-                        height: '100%',
-                        minHeight: '500px'
+                        width: '100%'
                     }}
                 >
                     {/* Collision Effects */}
@@ -1541,6 +1543,14 @@ export const EventBody = (props) => {
                             />
                             <span className="tooltiptext">backdrop library</span>
                         </div>
+                        <div className="icon">
+                            <FaChartBar 
+                                style={{ color: 'gray', cursor: 'pointer', fontSize: '30px' }} 
+                                onClick={() => setShowAnalytics(true)}
+                                title="View Analytics"
+                            />
+                            <span className="tooltiptext">analytics</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1563,6 +1573,12 @@ export const EventBody = (props) => {
                 onUpload={handleBackdropUpload}
                 onDelete={handleBackdropDelete}
                 currentItem={theme}
+            />
+
+            <AnalyticsDashboard
+                open={showAnalytics}
+                onClose={() => setShowAnalytics(false)}
+                actionQueue={actionQueue}
             />
 
             <ActionHistoryFooter

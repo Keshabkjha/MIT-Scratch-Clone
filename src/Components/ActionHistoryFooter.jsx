@@ -55,7 +55,8 @@ const ActionHistoryFooter = ({
 }) => {
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [bounce, setBounce] = useState(false);
-  const bounceTimeout = useRef(); // No initial value
+  const bounceTimeout = useRef();
+  const actionListRef = useRef();
 
   useEffect(() => {
     addDynamicAnalyticsButtonStyles();
@@ -74,21 +75,28 @@ const ActionHistoryFooter = ({
     };
   }, []);
 
+  // Scroll to end when new action is added
+  useEffect(() => {
+    if (actionListRef.current) {
+      actionListRef.current.scrollLeft = actionListRef.current.scrollWidth;
+    }
+  }, [actionQueue.length]);
+
   return (
-    <footer className="w-full px-2 md:px-0 fixed left-0 bottom-0 z-50 flex justify-center items-end pointer-events-none">
-      <div className="w-full max-w-5xl mx-auto mb-4 pointer-events-auto relative">
-        <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 px-4 py-5 md:py-6 flex flex-col gap-4">
-          {/* Header Row */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto justify-center md:justify-start">
-              <span className="flex items-center gap-2 text-2xl font-extrabold text-blue-800 drop-shadow-sm">
-                <FaHistory className="inline-block" size={28} />
+    <footer className="w-full px-2 md:px-0 fixed left-0 bottom-0 z-50 flex justify-center items-end pointer-events-none font-sans">
+      <div className="w-full max-w-5xl mx-auto mb-2 pointer-events-auto relative">
+        <div className="bg-gradient-to-br from-white via-blue-50 to-blue-100 rounded-2xl shadow-xl border border-gray-100 px-4 py-2 flex flex-col gap-2 min-h-0" style={{minHeight: 'unset'}}>
+          {/* Controls Row */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full md:w-auto justify-center md:justify-start">
+              <span className="flex items-center gap-2 text-lg font-extrabold text-blue-800 drop-shadow-sm">
+                <FaHistory className="inline-block" size={22} />
                 Action History
               </span>
-              <div className="relative group w-44">
-                <FaFilter className="absolute left-2 top-3 text-gray-400 pointer-events-none" size={16} />
+              <div className="relative group w-36">
+                <FaFilter className="absolute left-2 top-2.5 text-gray-400 pointer-events-none" size={14} />
                 <select
-                  className="pl-8 pr-2 py-2 border border-gray-200 rounded-lg text-base bg-white/80 focus:ring-2 focus:ring-blue-200 transition w-full shadow-sm hover:border-blue-400 font-semibold"
+                  className="pl-7 pr-2 py-1.5 border border-gray-200 rounded-lg text-sm bg-white/80 focus:ring-2 focus:ring-blue-200 transition w-full shadow-sm hover:border-blue-400 font-semibold"
                   value={spriteFilter}
                   onChange={e => setSpriteFilter(e.target.value)}
                   title="Filter by sprite"
@@ -100,37 +108,37 @@ const ActionHistoryFooter = ({
               </div>
             </div>
             {/* Buttons */}
-            <div className="flex flex-wrap gap-3 w-full md:w-auto justify-center md:justify-end mt-2 md:mt-0">
+            <div className="flex flex-row flex-wrap gap-2 w-full md:w-auto justify-center md:justify-end items-center">
               <button
-                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold shadow-lg hover:from-blue-600 hover:to-blue-700 focus:ring-2 focus:ring-blue-300 transition disabled:opacity-50 text-base"
+                className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold shadow-md hover:from-blue-600 hover:to-blue-700 focus:ring-2 focus:ring-blue-300 transition disabled:opacity-50 text-sm"
                 onClick={onReplay}
                 disabled={isReplaying || actionQueue.length === 0}
                 title="Replay all actions"
               >
-                <FaPlay size={18} /> {isReplaying ? 'Replaying...' : 'Replay'}
+                <FaPlay size={16} /> {isReplaying ? 'Replaying...' : 'Replay'}
               </button>
               {isReplaying && (
                 <button
-                  className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-yellow-400 to-yellow-500 text-white font-bold shadow-lg hover:from-yellow-500 hover:to-yellow-600 focus:ring-2 focus:ring-yellow-300 transition text-base"
+                  className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-gradient-to-r from-yellow-400 to-yellow-500 text-white font-bold shadow-md hover:from-yellow-500 hover:to-yellow-600 focus:ring-2 focus:ring-yellow-300 transition text-sm"
                   onClick={onPauseResume}
                   title="Pause or resume replay"
                 >
-                  <FaPause size={18} /> Pause/Resume
+                  <FaPause size={16} /> Pause/Resume
                 </button>
               )}
               <button
-                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white font-bold shadow-lg hover:from-red-600 hover:to-red-700 focus:ring-2 focus:ring-red-300 transition disabled:opacity-50 text-base"
+                className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-gradient-to-r from-red-500 to-red-600 text-white font-bold shadow-md hover:from-red-600 hover:to-red-700 focus:ring-2 focus:ring-red-300 transition disabled:opacity-50 text-sm"
                 onClick={onClear}
                 disabled={actionQueue.length === 0}
                 title="Clear action history"
               >
-                <FaTrash size={18} /> Clear
+                <FaTrash size={16} /> Clear
               </button>
             </div>
           </div>
-          {/* Action List */}
-          <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-blue-50">
-            <ul className="flex flex-row gap-4 py-3 px-1 min-h-[90px] md:min-h-[80px] overflow-x-auto font-mono">
+          {/* Action List - horizontal scrollable chips */}
+          <div className="w-full overflow-x-auto scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-blue-50" style={{maxHeight: 70, minHeight: 48}}>
+            <ul ref={actionListRef} className="flex flex-row gap-3 py-2 px-1 min-h-[48px] max-h-[70px] overflow-x-auto font-mono items-end">
               {actionQueue.length === 0 && (
                 <li className="flex items-center justify-center w-full text-gray-400 italic text-base mx-auto">No actions yet.</li>
               )}
@@ -139,51 +147,25 @@ const ActionHistoryFooter = ({
                 .map((action, idx) => (
                   <li
                     key={action.timestamp || idx}
-                    className={`flex flex-col items-center px-5 py-3 rounded-xl border-2 whitespace-nowrap shadow-md transition-all duration-200 min-w-[170px] max-w-xs bg-gradient-to-br ${
+                    className={`flex flex-col items-center px-4 py-2 rounded-lg border-2 whitespace-nowrap shadow transition-all duration-200 min-w-[120px] max-w-xs bg-gradient-to-br ${
                       isReplaying && replayIndex === idx
                         ? 'from-blue-100 to-blue-50 border-blue-500 text-blue-900 scale-105 animate-pulse ring-2 ring-blue-300'
                         : 'from-white to-gray-50 border-gray-200 text-gray-700'
                     }`}
                   >
                     <span className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-bold text-gray-400">#{idx + 1}</span>
+                      <span className="text-xs font-bold text-gray-400">#{idx + 1}</span>
                       {spriteBadge(action.spriteId)}
                     </span>
-                    <span className="flex items-center gap-2 mb-1 text-lg">
+                    <span className="flex items-center gap-2 mb-1 text-base">
                       {actionTypeIcon(action.type)}
-                      <span className="font-semibold capitalize text-base">{action.type}</span>
+                      <span className="font-semibold capitalize text-sm">{action.type}</span>
                     </span>
-                    <span className="text-sm text-gray-600 mb-1 font-semibold break-all">{action.value}</span>
+                    <span className="text-xs text-gray-600 mb-1 font-semibold break-all">{action.value}</span>
                     <span className="text-xs text-gray-400">{action.timestamp ? new Date(action.timestamp).toLocaleTimeString() : ''}</span>
                   </li>
                 ))}
             </ul>
-          </div>
-        </div>
-        {/* Floating Analytics Button - Bottom Center */}
-        <div className="fixed left-1/2 transform -translate-x-1/2 bottom-24 md:bottom-20 z-50 group select-none">
-          <button
-            className={`bg-gradient-to-br from-purple-500 via-pink-500 to-yellow-400 text-white rounded-full shadow-2xl p-4 md:p-5 flex items-center justify-center focus:outline-none focus:ring-4 focus:ring-purple-300 transition-all duration-300 hover:scale-110 ${
-              bounce ? 'animate-analytics-bounce' : ''
-            } animate-analytics-pulse border-4 border-white`}
-            style={{
-              animation: 'analytics-pulse 2s infinite',
-              fontSize: '1.8rem',
-              position: 'relative',
-              zIndex: 60
-            }}
-            onClick={() => setShowAnalytics(true)}
-            title="View Analytics"
-            tabIndex={0}
-            aria-label="View Analytics"
-          >
-            <FaChartBar size={32} />
-          </button>
-          {/* Tooltip */}
-          <div className="absolute bottom-16 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50">
-            <div className="bg-black text-white text-xs rounded px-3 py-1 shadow-lg font-semibold whitespace-nowrap">
-              📊 View Analytics
-            </div>
           </div>
         </div>
         <AnalyticsDashboard
