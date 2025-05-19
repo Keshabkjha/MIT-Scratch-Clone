@@ -12,7 +12,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import WallpaperIcon from '@mui/icons-material/Wallpaper';
 import { WARN_MSG_POS, WARN_MSG_SIZE } from '../constants';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CategorySidebar } from './CategorySidebar';
 import { LibraryModal } from './LibraryModal';
 import PetsIcon from '@mui/icons-material/Pets';
@@ -1201,55 +1201,69 @@ export const EventBody = (props) => {
         ]);
     };
 
-    // --- Replay Logic ---
+    // Function to add action to queue
+    const addActionToQueue = (spriteId, type, value) => {
+        setActionQueue(prev => [...prev, {
+            spriteId,
+            type,
+            value,
+            timestamp: Date.now()
+        }]);
+    };
+
+    // Function to handle replay
     const handleReplay = () => {
         if (actionQueue.length === 0) return;
+        
         setIsReplaying(true);
-        setReplayIndex(0);
-        replayStep(0);
-    };
+        setReplayIndex(-1);
+        
+        actionQueue.forEach((action, index) => {
+            safeSetTimeout(() => {
+                setReplayIndex(index);
+                // Execute the action based on its type
+                if (action.type === 'move') {
+                    // Handle move action
+                    const sprite = action.spriteId === 1 ? ref.current : ref2.current;
+                    if (sprite) {
+                        const currentX = parseInt(sprite.style.left);
+                        sprite.style.left = `${currentX + parseInt(action.value)}px`;
+                    }
+                } else if (action.type === 'turn') {
+                    // Handle turn action
+                    const sprite = action.spriteId === 1 ? ref.current : ref2.current;
+                    if (sprite) {
+                        const currentRotation = parseInt(sprite.style.transform.replace('rotate(', '').replace('deg)', '') || 0);
+                        sprite.style.transform = `rotate(${currentRotation + parseInt(action.value)}deg)`;
+                    }
+                }
+                // Add more action types as needed
+            }, index * 1000); // 1 second delay between actions
+        });
 
-    const replayStep = (idx) => {
-        if (idx >= actionQueue.length) {
+        // Reset after all actions are replayed
+        safeSetTimeout(() => {
             setIsReplaying(false);
             setReplayIndex(-1);
-            return;
-        }
-        setReplayIndex(idx);
-        const action = actionQueue[idx];
-        // Animate the sprite based on action.type, action.value, action.spriteId
-        // You should call your existing animation logic here, e.g. move, turn, say, etc.
-        // Example:
-        // if (action.type === 'move') moveSprite(action.spriteId, action.value);
-        // if (action.type === 'say') saySprite(action.spriteId, action.value);
-        // ...
-        // Simulate timing (e.g., 1s per action, or custom per type)
-        const delay = action.type === 'say' ? 1500 : 1000;
-        replayTimeoutRef.current = setTimeout(() => {
-            if (!isPaused) {
-                replayStep(idx + 1);
-            }
-        }, delay);
+        }, actionQueue.length * 1000);
     };
 
+    // Function to handle pause/resume
     const handlePauseResume = () => {
-        setIsPaused((prev) => {
-            const next = !prev;
-            if (!next && isReplaying && replayIndex >= 0) {
-                // Resume
-                replayStep(replayIndex);
-            } else if (next && replayTimeoutRef.current) {
-                // Pause
-                clearTimeout(replayTimeoutRef.current);
-            }
-            return next;
-        });
+        if (isReplaying) {
+            clearAllTimeouts();
+            setIsReplaying(false);
+        } else {
+            handleReplay();
+        }
     };
 
+    // Function to clear history
     const handleClearHistory = () => {
         setActionQueue([]);
-        setReplayIndex(-1);
+        clearAllTimeouts();
         setIsReplaying(false);
+        setReplayIndex(-1);
     };
 
     return (

@@ -1,5 +1,6 @@
-import React from 'react';
-import { FaHistory, FaPlay, FaPause, FaTrash, FaFilter } from 'react-icons/fa';
+import React, { useState } from 'react';
+import { FaHistory, FaPlay, FaPause, FaTrash, FaFilter, FaChartBar } from 'react-icons/fa';
+import AnalyticsDashboard from './AnalyticsDashboard';
 
 const actionTypeIcon = (type) => {
   switch (type) {
@@ -30,6 +31,8 @@ const ActionHistoryFooter = ({
   spriteFilter,
   setSpriteFilter
 }) => {
+  const [showAnalytics, setShowAnalytics] = useState(false);
+
   return (
     <footer className="w-full bg-white/70 backdrop-blur-lg border-t border-gray-200 shadow-2xl rounded-t-2xl py-4 px-0 sticky bottom-0 z-40 transition-all duration-300">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 px-4">
@@ -80,6 +83,13 @@ const ActionHistoryFooter = ({
           >
             <FaTrash size={18} /> Clear
           </button>
+          <button
+            className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 text-white font-bold shadow-lg hover:from-purple-600 hover:to-purple-700 focus:ring-2 focus:ring-purple-300 transition"
+            onClick={() => setShowAnalytics(true)}
+            title="View Analytics"
+          >
+            <FaChartBar size={18} /> Analytics
+          </button>
         </div>
       </div>
       {/* Action List */}
@@ -114,6 +124,12 @@ const ActionHistoryFooter = ({
             ))}
         </ul>
       </div>
+
+      <AnalyticsDashboard
+        open={showAnalytics}
+        onClose={() => setShowAnalytics(false)}
+        actionQueue={actionQueue}
+      />
     </footer>
   );
 };
