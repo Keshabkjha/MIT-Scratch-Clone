@@ -1345,7 +1345,6 @@ export const EventBody = (props) => {
                         height: '100%',
                         minHeight: '500px'
                     }}
-                    className="rounded-3xl shadow-2xl bg-gradient-to-br from-white/80 via-blue-50/80 to-blue-100/60 backdrop-blur-lg border border-blue-100 p-6 mx-auto my-8 flex items-center justify-center transition-all duration-300"
                 >
                     {/* Collision Effects */}
                     {collisionEffects.ripple && (

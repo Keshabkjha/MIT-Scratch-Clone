@@ -142,15 +142,15 @@ export const LibraryModal = ({ open, onClose, type, onSelect, onUpload, onDelete
                                         <CircularProgress size={24} />
                                     </Box>
                                 ) : (
-                                    <img 
-                                        src={item.url} 
-                                        alt={item.name}
-                                        style={{ 
-                                            width: '100%', 
-                                            height: type === 'sprite' ? '100px' : '80px',
-                                            objectFit: type === 'sprite' ? 'contain' : 'cover'
-                                        }}
-                                    />
+                                <img 
+                                    src={item.url} 
+                                    alt={item.name}
+                                    style={{ 
+                                        width: '100%', 
+                                        height: type === 'sprite' ? '100px' : '80px',
+                                        objectFit: type === 'sprite' ? 'contain' : 'cover'
+                                    }}
+                                />
                                 )}
                                 <Box sx={{ mt: 1 }}>{item.name}</Box>
                             </Box>
