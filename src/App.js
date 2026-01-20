@@ -23,10 +23,10 @@ export default function App() {
     ) {
       return;
     }
-    let add , 
-      active = [...moves],
-      complete = [...actions],
-      complete2 = [...actions2]; 
+    let add;
+    const active = [...moves];
+    const complete = [...actions];
+    const complete2 = [...actions2]; 
 
     // take a move to drag and drop 
     add = active[source.index];
