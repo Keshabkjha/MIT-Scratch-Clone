@@ -78,7 +78,7 @@ export const LibraryModal = ({ open, onClose, type, onSelect, onUpload, onDelete
                 }
             });
         }
-    }, [open, type]);
+    }, [open, type, preloadedImages]);
 
     const handleTabChange = (event, newValue) => {
         setActiveTab(newValue);
