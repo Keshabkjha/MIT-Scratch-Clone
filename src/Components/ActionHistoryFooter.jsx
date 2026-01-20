@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FaHistory, FaPlay, FaPause, FaTrash, FaFilter, FaChartBar } from 'react-icons/fa';
+import { FaHistory, FaPlay, FaPause, FaTrash, FaFilter } from 'react-icons/fa';
 import AnalyticsDashboard from './AnalyticsDashboard';
 
 const actionTypeIcon = (type) => {
@@ -54,24 +54,11 @@ const ActionHistoryFooter = ({
   setSpriteFilter
 }) => {
   const [showAnalytics, setShowAnalytics] = useState(false);
-  const [bounce, setBounce] = useState(false);
-  const bounceTimeout = useRef();
   const actionListRef = useRef();
 
   useEffect(() => {
     addDynamicAnalyticsButtonStyles();
-    // Initial bounce
-    setBounce(true);
-    let initial = setTimeout(() => setBounce(false), 900);
-    // Periodic bounce every 10s
-    const interval = setInterval(() => {
-      setBounce(true);
-      bounceTimeout.current = setTimeout(() => setBounce(false), 900);
-    }, 10000);
     return () => {
-      clearTimeout(initial);
-      if (bounceTimeout.current) clearTimeout(bounceTimeout.current);
-      clearInterval(interval);
     };
   }, []);
 

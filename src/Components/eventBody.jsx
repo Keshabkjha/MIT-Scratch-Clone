@@ -1,7 +1,6 @@
 import * as React from 'react';
 import { SingleAction } from './singleAction';
 import { Droppable } from 'react-beautiful-dnd';
-import { Box, Button, Modal, Tab, Tabs, IconButton } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AddBoxIcon from '@mui/icons-material/AddBox';
@@ -10,9 +9,8 @@ import DisabledByDefaultIcon from '@mui/icons-material/DisabledByDefault';
 import Draggable1 from 'react-draggable';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import WallpaperIcon from '@mui/icons-material/Wallpaper';
 import { WARN_MSG_POS, WARN_MSG_SIZE } from '../constants';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CategorySidebar } from './CategorySidebar';
 import { LibraryModal } from './LibraryModal';
 import PetsIcon from '@mui/icons-material/Pets';
@@ -37,6 +35,8 @@ export const EventBody = (props) => {
     const ref = useRef(null);
     const ref2 = useRef(null);
     const movesContainerRef = useRef(null);
+    const checkCollisionRef = useRef(null);
+    const startActionsRef = useRef(null);
     const [activeCategory, setActiveCategory] = React.useState('Motion');
     const [isColliding, setIsColliding] = React.useState(false);
     const [hasSwappedAnimations, setHasSwappedAnimations] = React.useState(false);
@@ -91,10 +91,7 @@ export const EventBody = (props) => {
     const [actionQueue, setActionQueue] = React.useState([]);
     const [isReplaying, setIsReplaying] = React.useState(false);
     const [replayIndex, setReplayIndex] = React.useState(-1);
-    const [isPaused, setIsPaused] = React.useState(false);
     const [spriteFilter, setSpriteFilter] = React.useState('all');
-    const replayTimeoutRef = React.useRef(null);
-
     const [showAnalytics, setShowAnalytics] = useState(false);
 
     console.log("rendering...");
@@ -105,7 +102,6 @@ export const EventBody = (props) => {
 
         const handleScroll = () => {
             const categories = Array.from(container.getElementsByClassName('moves__category'));
-            const containerTop = container.scrollTop;
             const containerHeight = container.clientHeight;
 
             // Find which category is most visible
@@ -647,6 +643,17 @@ export const EventBody = (props) => {
         }
     };
 
+    startActionsRef.current = startActions;
+
+    const startActionsCallback = useCallback(
+        (action, idx, action1) => {
+            if (startActionsRef.current) {
+                startActionsRef.current(action, idx, action1);
+            }
+        },
+        []
+    );
+
     // Function to create collision effects
     const createCollisionEffects = (x, y) => {
         setCollisionEffects({
@@ -669,7 +676,7 @@ export const EventBody = (props) => {
 
     // Enhanced collision detection
     const handleCollision = (draggedRect, otherRect) => {
-        const collision = checkCollision();
+        const collision = checkCollisionCallback();
         if (collision && !isColliding) {
             setIsColliding(true);
             if (!hasSwappedAnimations) {
@@ -735,6 +742,15 @@ export const EventBody = (props) => {
                (distanceY < (sprite1Height + sprite2Height) / 2.2);
     };
 
+    checkCollisionRef.current = checkCollision;
+
+    const checkCollisionCallback = useCallback(() => {
+        if (checkCollisionRef.current) {
+            return checkCollisionRef.current();
+        }
+        return false;
+    }, []);
+
     // Function to swap animations between sprites
     const swapAnimations = () => {
         if (!hasSwappedAnimations && actions?.length > 0 && actions2?.length > 0) {
@@ -781,13 +797,13 @@ export const EventBody = (props) => {
                 // Start both animations simultaneously with swapped actions
                 if (tempActions2.length) {
                     tempActions2.forEach((item, i) => {
-                        startActions(item.todo, i, true);
+                                        startActionsCallback(item.todo, i, true);
                     });
                 }
                 
                 if (tempActions.length) {
                     tempActions.forEach((item, i) => {
-                        startActions(item.todo, i, false);
+                                        startActionsCallback(item.todo, i, false);
                     });
                 }
             }, 500);
@@ -833,13 +849,13 @@ export const EventBody = (props) => {
         // Start both sprites' animations simultaneously
             if (actions?.length) {
             actions.forEach((item, i) => {
-                startActions(item.todo, i, true);
+                startActionsCallback(item.todo, i, true);
             });
             }
             
             if (!displayAddIcon && actions2?.length) {
             actions2.forEach((item, i) => {
-                startActions(item.todo, i, false);
+                startActionsCallback(item.todo, i, false);
             });
         }
     };
@@ -892,7 +908,7 @@ export const EventBody = (props) => {
     function runAction1(){
         if (actions?.length) {
             actions.forEach((item, i) => {
-                startActions(item.todo, i, true);
+                startActionsCallback(item.todo, i, true);
             });
         }
     }
@@ -900,7 +916,7 @@ export const EventBody = (props) => {
     function runAction2(){
         if (!displayAddIcon && actions2?.length) {
             actions2.forEach((item, i) => {
-                startActions(item.todo, i, false);
+                startActionsCallback(item.todo, i, false);
             });
         }
     }
@@ -945,7 +961,7 @@ export const EventBody = (props) => {
             collisionInterval = setInterval(() => {
                 if (!isAnimating) return;
                 
-                const collision = checkCollision();
+                    const collision = checkCollisionCallback();
                 if (collision !== lastCollisionState) {
                     lastCollisionState = collision;
                     if (collision) {
@@ -992,12 +1008,12 @@ export const EventBody = (props) => {
                                 setIsAnimating(true);
                                 if (tempActions2.length) {
                                     tempActions2.forEach((item, i) => {
-                                        startActions(item.todo, i, true);
+                                        startActionsCallback(item.todo, i, true);
                                     });
                                 }
                                 if (tempActions.length) {
                                     tempActions.forEach((item, i) => {
-                                        startActions(item.todo, i, false);
+                                        startActionsCallback(item.todo, i, false);
                                     });
                                 }
                             }, 500);
@@ -1015,7 +1031,20 @@ export const EventBody = (props) => {
                 clearInterval(collisionInterval);
             }
         };
-    }, [isAnimating, displayAddIcon, sprite2, isColliding, actions, actions2, sprite1Visible, sprite2Visible]);
+    }, [
+        actions,
+        actions2,
+        checkCollisionCallback,
+        displayAddIcon,
+        hasSwappedAnimations,
+        isAnimating,
+        setActions,
+        setActions2,
+        sprite1Visible,
+        sprite2Visible,
+        sprite2,
+        startActionsCallback
+    ]);
 
     // Add CSS for better collision visualization
     useEffect(() => {
@@ -1203,16 +1232,6 @@ export const EventBody = (props) => {
                 timestamp: Date.now(),
             },
         ]);
-    };
-
-    // Function to add action to queue
-    const addActionToQueue = (spriteId, type, value) => {
-        setActionQueue(prev => [...prev, {
-            spriteId,
-            type,
-            value,
-            timestamp: Date.now()
-        }]);
     };
 
     // Function to handle replay
