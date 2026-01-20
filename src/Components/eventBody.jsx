@@ -35,8 +35,7 @@ export const EventBody = (props) => {
     const ref = useRef(null);
     const ref2 = useRef(null);
     const movesContainerRef = useRef(null);
-    const checkCollisionRef = useRef(null);
-    const startActionsRef = useRef(null);
+    const actionHandlersRef = useRef({});
     const [activeCategory, setActiveCategory] = React.useState('Motion');
     const [isColliding, setIsColliding] = React.useState(false);
     const [hasSwappedAnimations, setHasSwappedAnimations] = React.useState(false);
@@ -643,12 +642,13 @@ export const EventBody = (props) => {
         }
     };
 
-    startActionsRef.current = startActions;
+    actionHandlersRef.current.startActions = startActions;
 
     const startActionsCallback = useCallback(
         (action, idx, action1) => {
-            if (startActionsRef.current) {
-                startActionsRef.current(action, idx, action1);
+            const handler = actionHandlersRef.current.startActions;
+            if (handler) {
+                handler(action, idx, action1);
             }
         },
         []
@@ -742,11 +742,12 @@ export const EventBody = (props) => {
                (distanceY < (sprite1Height + sprite2Height) / 2.2);
     };
 
-    checkCollisionRef.current = checkCollision;
+    actionHandlersRef.current.checkCollision = checkCollision;
 
     const checkCollisionCallback = useCallback(() => {
-        if (checkCollisionRef.current) {
-            return checkCollisionRef.current();
+        const handler = actionHandlersRef.current.checkCollision;
+        if (handler) {
+            return handler();
         }
         return false;
     }, []);
