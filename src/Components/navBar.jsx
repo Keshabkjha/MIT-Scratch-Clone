@@ -1,15 +1,25 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import AppBar from '@mui/material/AppBar';
 import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
 import Container from '@mui/material/Container';
 import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
 import Logo from '../Assets/images/Logo.png';
 import { PAGES } from '../constants';
 import { FaGithub, FaLinkedin } from 'react-icons/fa';
 
-export const NavBar = () => {
+export const NavBar = ({ projectName, onProjectNameChange, savedAtLabel, onSave, onLoad, onExport, onImport }) => {
   const handleCloseNavMenu = () => {};
+  const fileInputRef = useRef(null);
+
+  const handleFilePick = (event) => {
+    const [file] = event.target.files || [];
+    if (onImport) {
+      onImport(file);
+    }
+    event.target.value = '';
+  };
 
   return (
     <AppBar position="static" sx={{backgroundColor : '#4d97ff'}}>
@@ -46,6 +56,37 @@ export const NavBar = () => {
             ))}
           </Box>
           <Box sx={{ flexGrow: 0, fontFamily:'monospace',display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 2 }}>
+              <TextField
+                size="small"
+                value={projectName}
+                onChange={(event) => onProjectNameChange?.(event.target.value)}
+                placeholder="Project name"
+                variant="outlined"
+                sx={{
+                  backgroundColor: 'white',
+                  borderRadius: 1,
+                  minWidth: 180
+                }}
+                inputProps={{ maxLength: 40 }}
+              />
+              <span style={{ color: 'white', fontSize: '12px', opacity: 0.9 }}>
+                {savedAtLabel}
+              </span>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1, mr: 3 }}>
+              <Button variant="contained" color="success" size="small" onClick={onSave}>💾 Save</Button>
+              <Button variant="contained" color="info" size="small" onClick={onLoad}>📂 Load</Button>
+              <Button variant="contained" color="secondary" size="small" onClick={onExport}>⬇️ Export</Button>
+              <Button variant="contained" color="primary" size="small" onClick={() => fileInputRef.current?.click()}>⬆️ Import</Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json"
+                onChange={handleFilePick}
+                style={{ display: 'none' }}
+              />
+            </Box>
             {/* Social Icons */}
             <a href="https://github.com/Keshabkjha" target="_blank" rel="noopener noreferrer" style={{ color: 'white', marginRight: 16, fontSize: 28, display: 'flex', alignItems: 'center' }} title="GitHub">
               <FaGithub style={{ transition: 'color 0.2s' }} className="hover:text-gray-300" />
