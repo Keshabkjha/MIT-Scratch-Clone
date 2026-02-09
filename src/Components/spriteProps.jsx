@@ -53,7 +53,7 @@ export const Sprites = (props) => {
                 <img src={item.src} 
                     alt={`Sprite option ${item.id + 1}`}
                     style={{
-                        matginBottom:'30px',
+                        marginBottom:'30px',
                         height:'120px',
                         width:'120px'
                     }}
