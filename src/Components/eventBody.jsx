@@ -1472,23 +1472,21 @@ export const EventBody = (props) => {
                 announceEvent(action.value || 'Broadcast: hello!', action1, 'Broadcast hello');
                 break;
             case 'Touching edge?':
-                handleSensingResult('Touching edge', Boolean(action.result), action1, 'Touching edge?');
+                if (typeof action.result !== 'boolean') return;
+                handleSensingResult('Touching edge', action.result, action1, 'Touching edge?');
                 break;
             case 'Touching sprite?':
-                handleSensingResult('Touching sprite', Boolean(action.result), action1, 'Touching sprite?');
+                if (typeof action.result !== 'boolean') return;
+                handleSensingResult('Touching sprite', action.result, action1, 'Touching sprite?');
                 break;
             case 'Pick random 1 to 10': {
-                const result = typeof action.result === 'number'
-                    ? action.result
-                    : Math.floor(Math.random() * 10) + 1;
-                handleOperatorResult('Random 1-10', result, action1, 'Pick random 1 to 10');
+                if (typeof action.result !== 'number') return;
+                handleOperatorResult('Random 1-10', action.result, action1, 'Pick random 1 to 10');
                 break;
             }
             case 'Score + 5': {
-                const result = typeof action.result === 'number'
-                    ? action.result
-                    : scoreRef.current + 5;
-                handleOperatorResult('Score + 5', result, action1, 'Score + 5');
+                if (typeof action.result !== 'number') return;
+                handleOperatorResult('Score + 5', action.result, action1, 'Score + 5');
                 break;
             }
             case 'Set score to 0': {
