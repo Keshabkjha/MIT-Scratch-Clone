@@ -116,7 +116,7 @@ export const LibraryModal = ({ open, onClose, type, onSelect, onUpload, onDelete
                     <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
                         {items.map((item) => (
                             <Box 
-                                key={`${type}-${item.name}`}
+                                key={`${type}-${item.url}`}
                                 sx={{
                                     border: '1px solid #ddd',
                                     borderRadius: 1,
