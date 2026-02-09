@@ -22,6 +22,16 @@ import ActionHistoryFooter from './ActionHistoryFooter';
 import { FaChartBar } from 'react-icons/fa';
 import AnalyticsDashboard from './AnalyticsDashboard';
 
+const ALIGNMENT_THRESHOLD = 5; // pixels within which to show alignment guides
+const STAGE_BOUNDARY_X = 290;
+const STAGE_BOUNDARY_Y = 140;
+const IMMEDIATE_ACTION_INDEX = 0;
+const SPIN_JUMP_DELAY = 600;
+const WIGGLE_ANGLE = 15;
+const WIGGLE_SWING_ANGLE = -30;
+const WIGGLE_STEP_DELAY = 300;
+const WIGGLE_RETURN_DELAY = 600;
+
 export const EventBody = (props) => {
     const {
         moves,
@@ -76,8 +86,6 @@ export const EventBody = (props) => {
         horizontal: { show: false, position: 0 }
     });
 
-    const ALIGNMENT_THRESHOLD = 5; // pixels within which to show alignment guides
-
     const [collisionEffects, setCollisionEffects] = React.useState({
         ripple: false,
         soundWave: false,
@@ -94,7 +102,7 @@ export const EventBody = (props) => {
     const [showAnalytics, setShowAnalytics] = useState(false);
     const [score, setScore] = React.useState(0);
     const [operatorResult, setOperatorResult] = React.useState(null);
-    const scoreRef = useRef(0);
+    const scoreRef = useRef(score);
 
     console.log("rendering...");
 
@@ -524,16 +532,16 @@ export const EventBody = (props) => {
 
     const runSpinJump = (action1) => {
         pushActionToQueue(action1 ? 1 : 2, 'custom', 'Spin jump');
-        rotate(360, 0, action1);
-        moveUp(0, action1);
-        safeSetTimeout(() => moveDown(0, action1), 600);
+        rotate(360, IMMEDIATE_ACTION_INDEX, action1);
+        moveUp(IMMEDIATE_ACTION_INDEX, action1);
+        safeSetTimeout(() => moveDown(IMMEDIATE_ACTION_INDEX, action1), SPIN_JUMP_DELAY);
     };
 
     const runWiggle = (action1) => {
         pushActionToQueue(action1 ? 1 : 2, 'custom', 'Wiggle');
-        rotate(15, 0, action1);
-        safeSetTimeout(() => rotate(-30, 0, action1), 300);
-        safeSetTimeout(() => rotate(15, 0, action1), 600);
+        rotate(WIGGLE_ANGLE, IMMEDIATE_ACTION_INDEX, action1);
+        safeSetTimeout(() => rotate(WIGGLE_SWING_ANGLE, IMMEDIATE_ACTION_INDEX, action1), WIGGLE_STEP_DELAY);
+        safeSetTimeout(() => rotate(WIGGLE_ANGLE, IMMEDIATE_ACTION_INDEX, action1), WIGGLE_RETURN_DELAY);
     };
 
     const startActions = (action, idx, action1) => {
@@ -721,15 +729,17 @@ export const EventBody = (props) => {
                 safeSetTimeout(() => {
                     const currentX = parseInt(action1 ? r : r2, 10);
                     const currentY = parseInt(action1 ? t : t2, 10);
-                    const touchingEdge = Math.abs(currentX) >= 290 || Math.abs(currentY) >= 140;
+                    const touchingEdge = Math.abs(currentX) >= STAGE_BOUNDARY_X
+                        || Math.abs(currentY) >= STAGE_BOUNDARY_Y;
                     handleSensingResult('Touching edge', touchingEdge, action1);
                 }, delay);
                 break;
             }
             case 'Touching sprite?': {
                 safeSetTimeout(() => {
-                    const touchingSprite = !displayAddIcon && sprite2 ? checkCollisionCallback() : false;
-                    handleSensingResult('Touching sprite', touchingSprite, action1);
+                    const shouldCheckCollision = !displayAddIcon && sprite2;
+                    const isTouchingSprite = shouldCheckCollision ? checkCollisionCallback() : false;
+                    handleSensingResult('Touching sprite', isTouchingSprite, action1);
                 }, delay);
                 break;
             }
@@ -752,7 +762,7 @@ export const EventBody = (props) => {
                 break;
             }
             case 'Change score by 1': {
-                safeSetTimeout(() => updateScore(prev => prev + 1, action1), delay);
+                safeSetTimeout(() => updateScore(prevScore => prevScore + 1, action1), delay);
                 break;
             }
             case 'Spin jump': {
