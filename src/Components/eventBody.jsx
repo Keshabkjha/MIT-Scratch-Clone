@@ -34,6 +34,7 @@ export const EventBody = (props) => {
 
     const ref = useRef(null);
     const ref2 = useRef(null);
+    const stageRef = useRef(null);
     const movesContainerRef = useRef(null);
     const actionHandlersRef = useRef({});
     const [activeCategory, setActiveCategory] = React.useState('Motion');
@@ -64,6 +65,8 @@ export const EventBody = (props) => {
     const [sprite2, setSprite2] = React.useState(null);
     const [activeSprite, setActiveSprite] = React.useState(1); // 1 for first sprite, 2 for second sprite
     const [currentAction, setCurrentAction] = React.useState('');
+    const [score, setScore] = React.useState(0);
+    const [operatorResult, setOperatorResult] = React.useState('');
 
     const [isAnimating, setIsAnimating] = React.useState(false);
     const timeoutRefs = React.useRef(new Set());
@@ -465,6 +468,14 @@ export const EventBody = (props) => {
         }, i * 1500);
     }
 
+    function bounceSprite(i, action1) {
+        if (!isAnimating) return;
+        safeSetTimeout(() => {
+            moveUp(0, action1);
+            safeSetTimeout(() => moveDown(0, action1), 600);
+        }, i * 1500);
+    }
+
     const startActions = (action, idx, action1) => {
         if (!isAnimating) return;
         const delay = idx * 1500;
@@ -636,6 +647,140 @@ export const EventBody = (props) => {
                     // Play a test sound to demonstrate volume change
                     playSound('pop', newVolume);
                 }, delay);
+                break;
+            }
+            case 'Wait 1 second': {
+                safeSetTimeout(() => {
+                    pushActionToQueue(action1 ? 1 : 2, 'control', 'wait 1 second');
+                }, delay);
+                break;
+            }
+            case 'Stop all': {
+                safeSetTimeout(() => {
+                    pushActionToQueue(action1 ? 1 : 2, 'control', 'stop all');
+                    clearAllTimeouts();
+                    setIsAnimating(false);
+                }, delay);
+                break;
+            }
+            case 'When green flag clicked': {
+                safeSetTimeout(() => {
+                    pushActionToQueue(action1 ? 1 : 2, 'event', 'green flag clicked');
+                    toast.info('Green flag event triggered.');
+                }, delay);
+                break;
+            }
+            case 'When sprite clicked': {
+                safeSetTimeout(() => {
+                    pushActionToQueue(action1 ? 1 : 2, 'event', 'sprite clicked');
+                    toast.info('Sprite click event triggered.');
+                }, delay);
+                break;
+            }
+            case 'Broadcast message': {
+                safeSetTimeout(() => {
+                    pushActionToQueue(action1 ? 1 : 2, 'event', 'broadcast message');
+                    toast.info('Broadcast: Hello from Scratch!');
+                }, delay);
+                break;
+            }
+            case 'Touching sprite?': {
+                safeSetTimeout(() => {
+                    const touching = checkCollisionCallback();
+                    pushActionToQueue(
+                        action1 ? 1 : 2,
+                        'sensing',
+                        touching ? 'touching sprite' : 'not touching sprite'
+                    );
+                    toast.info(touching ? 'Sprites are touching.' : 'No sprite collision detected.');
+                }, delay);
+                break;
+            }
+            case 'Touching edge?': {
+                safeSetTimeout(() => {
+                    const spriteRef = action1 ? ref.current : ref2.current;
+                    const stageRect = stageRef.current?.getBoundingClientRect();
+                    if (!spriteRef || !stageRect) return;
+                    const spriteRect = spriteRef.getBoundingClientRect();
+                    const edgePadding = 12;
+                    const touching =
+                        spriteRect.left <= stageRect.left + edgePadding ||
+                        spriteRect.right >= stageRect.right - edgePadding ||
+                        spriteRect.top <= stageRect.top + edgePadding ||
+                        spriteRect.bottom >= stageRect.bottom - edgePadding;
+                    pushActionToQueue(
+                        action1 ? 1 : 2,
+                        'sensing',
+                        touching ? 'touching edge' : 'not touching edge'
+                    );
+                    toast.info(touching ? 'Sprite is touching the edge.' : 'Sprite is not touching the edge.');
+                }, delay);
+                break;
+            }
+            case 'Sprite position report': {
+                safeSetTimeout(() => {
+                    const spriteRef = action1 ? ref.current : ref2.current;
+                    const stageRect = stageRef.current?.getBoundingClientRect();
+                    if (!spriteRef || !stageRect) return;
+                    const spriteRect = spriteRef.getBoundingClientRect();
+                    const x = Math.round(spriteRect.left - stageRect.left);
+                    const y = Math.round(spriteRect.top - stageRect.top);
+                    pushActionToQueue(action1 ? 1 : 2, 'sensing', `x:${x}, y:${y}`);
+                    toast.info(`Sprite position → x:${x}, y:${y}`);
+                }, delay);
+                break;
+            }
+            case 'Pick random 1 to 10': {
+                safeSetTimeout(() => {
+                    const value = Math.floor(Math.random() * 10) + 1;
+                    setOperatorResult(value.toString());
+                    pushActionToQueue(action1 ? 1 : 2, 'operator', `random ${value}`);
+                }, delay);
+                break;
+            }
+            case 'Add 5 + 10': {
+                safeSetTimeout(() => {
+                    const value = 15;
+                    setOperatorResult(value.toString());
+                    pushActionToQueue(action1 ? 1 : 2, 'operator', '5 + 10 = 15');
+                }, delay);
+                break;
+            }
+            case 'Is score > 10?': {
+                safeSetTimeout(() => {
+                    const result = score > 10 ? 'Yes' : 'No';
+                    setOperatorResult(result);
+                    pushActionToQueue(action1 ? 1 : 2, 'operator', `score > 10? ${result}`);
+                }, delay);
+                break;
+            }
+            case 'Set score to 0': {
+                safeSetTimeout(() => {
+                    setScore(0);
+                    pushActionToQueue(action1 ? 1 : 2, 'variable', 'score = 0');
+                }, delay);
+                break;
+            }
+            case 'Change score by 1': {
+                safeSetTimeout(() => {
+                    setScore((prev) => prev + 1);
+                    pushActionToQueue(action1 ? 1 : 2, 'variable', 'score +1');
+                }, delay);
+                break;
+            }
+            case 'Change score by -1': {
+                safeSetTimeout(() => {
+                    setScore((prev) => prev - 1);
+                    pushActionToQueue(action1 ? 1 : 2, 'variable', 'score -1');
+                }, delay);
+                break;
+            }
+            case 'Custom spin': {
+                safeSetTimeout(() => rotate(360, idx, action1), delay);
+                break;
+            }
+            case 'Custom bounce': {
+                safeSetTimeout(() => bounceSprite(idx, action1), delay);
                 break;
             }
             default: break;
@@ -824,6 +969,8 @@ export const EventBody = (props) => {
         setHello2(false);
         setThink(false);
         setThink2(false);
+        setScore(0);
+        setOperatorResult('');
         setCurrentAction('');
         
         // Reset positions
@@ -1315,6 +1462,11 @@ export const EventBody = (props) => {
                             {renderCategory('Looks', null, moves)}
                             {renderCategory('Sound', null, moves)}
                             {renderCategory('Control', null, moves)}
+                            {renderCategory('Events', null, moves)}
+                            {renderCategory('Sensing', null, moves)}
+                            {renderCategory('Operators', null, moves)}
+                            {renderCategory('Variables', null, moves)}
+                            {renderCategory('My Blocks', null, moves)}
                             {provided.placeholder}
                         </div>
                     )}
@@ -1373,6 +1525,7 @@ export const EventBody = (props) => {
                 )}
 
                 <div className="moves play" 
+                    ref={stageRef}
                     style={{
                         background: theme ? 'none' : 'white',
                         backgroundSize: 'cover',
@@ -1423,6 +1576,16 @@ export const EventBody = (props) => {
                         position={alignmentGuides.horizontal.position} 
                         type="horizontal" 
                     />
+                    <div className="playground-stats">
+                        <div className="stat-card">
+                            <span className="stat-label">Score</span>
+                            <span className="stat-value">{score}</span>
+                        </div>
+                        <div className="stat-card">
+                            <span className="stat-label">Operator</span>
+                            <span className="stat-value">{operatorResult || '--'}</span>
+                        </div>
+                    </div>
                     <div style={{display:'flex', flexDirection:"row"}}> 
                         <Draggable1 bounds={{left: -540, top: -250, right:540, bottom:250}}
                             onDrag={(e, data) => handleDrag(e, data, true)}

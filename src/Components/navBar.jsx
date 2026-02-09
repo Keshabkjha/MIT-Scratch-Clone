@@ -24,7 +24,7 @@ export const NavBar = ({ projectName, onProjectNameChange, savedAtLabel, onSave,
   return (
     <AppBar position="static" sx={{backgroundColor : '#4d97ff'}}>
       <Container maxWidth="xl">
-        <Toolbar disableGutters>
+        <Toolbar disableGutters sx={{ flexWrap: 'wrap', gap: 1, py: 1 }}>
           <Box
              sx={{
                 mr:5,
@@ -55,8 +55,18 @@ export const NavBar = ({ projectName, onProjectNameChange, savedAtLabel, onSave,
               </Button>
             ))}
           </Box>
-          <Box sx={{ flexGrow: 0, fontFamily:'monospace',display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mr: 2 }}>
+          <Box
+            sx={{
+              flexGrow: 0,
+              fontFamily: 'monospace',
+              display: 'flex',
+              flexDirection: { xs: 'column', md: 'row' },
+              alignItems: { xs: 'stretch', md: 'center' },
+              gap: { xs: 1.5, md: 0 },
+              width: { xs: '100%', md: 'auto' }
+            }}
+          >
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: 1, mr: { xs: 0, md: 2 } }}>
               <TextField
                 size="small"
                 value={projectName}
@@ -66,7 +76,7 @@ export const NavBar = ({ projectName, onProjectNameChange, savedAtLabel, onSave,
                 sx={{
                   backgroundColor: 'white',
                   borderRadius: 1,
-                  minWidth: 180
+                  minWidth: { xs: '100%', sm: 180 }
                 }}
                 inputProps={{ maxLength: 40 }}
               />
@@ -74,7 +84,7 @@ export const NavBar = ({ projectName, onProjectNameChange, savedAtLabel, onSave,
                 {savedAtLabel}
               </span>
             </Box>
-            <Box sx={{ display: 'flex', gap: 1, mr: 3 }}>
+            <Box sx={{ display: 'flex', gap: 1, mr: { xs: 0, md: 3 }, flexWrap: 'wrap' }}>
               <Button variant="contained" color="success" size="small" onClick={onSave}>💾 Save</Button>
               <Button variant="contained" color="info" size="small" onClick={onLoad}>📂 Load</Button>
               <Button variant="contained" color="secondary" size="small" onClick={onExport}>⬇️ Export</Button>

@@ -5,10 +5,11 @@
   justify-content: flex-start;
   align-items: flex-start;
   gap: 10px;
+  padding: 0 10px 20px;
 }
 
 .moves {
-  border-right: 1px solid lightgrey;
+  border: 1px solid #e5e7eb;
   border-radius: 10px;
   display: flex;
   flex-direction: column;
@@ -22,6 +23,7 @@
   scroll-behavior: smooth;
   position: relative;
   margin-left: 10px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 .actions {
@@ -30,6 +32,7 @@
   min-height: 70vh;
   overflow-y: scroll;
   overflow-x: hidden;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 .play {
@@ -41,6 +44,9 @@
   width: 70%;
   margin-right:10px ;
   overflow-x: scroll;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
 }
 
 .moves__heading {
@@ -251,10 +257,22 @@
 @media (max-width: 1100px) {
   .container {
     gap: 5px;
+    flex-wrap: wrap;
+    padding: 0 6px 20px;
   }
   .moves {
-    width: 45%;
+    width: 48%;
     margin-left: 5px;
+    min-height: 50vh;
+  }
+  .actions {
+    width: 48%;
+    min-height: 50vh;
+  }
+  .play {
+    width: 100%;
+    margin-right: 0;
+    min-height: 60vh;
   }
   .gameProps {
     row-gap: 20px;
@@ -271,17 +289,43 @@
     width: 98%;
     flex-direction: column;
     align-items: center;
+    padding: 0 4px 20px;
   }
   .moves {
     width: 98%;
     margin-bottom: 10px;
     margin-left: 0;
+    min-height: auto;
+  }
+  .actions {
+    width: 98%;
+    min-height: auto;
+  }
+  .play {
+    width: 98%;
+    height: 60vh;
+    margin-right: 0;
   }
   .gameProps {
     margin-top: 20px;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+  }
+}
+
+@media (max-width: 540px) {
+  .playground-stats {
+    top: 8px;
+    left: 8px;
+    gap: 6px;
+  }
+  .stat-card {
+    min-width: 76px;
+    padding: 6px 10px;
+  }
+  .stat-value {
+    font-size: 16px;
   }
 }
 
@@ -311,6 +355,42 @@
 /* Remove the separator since we're using border-top */
 .moves__category:not(:last-child)::after {
   display: none;
+}
+
+.playground-stats {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  z-index: 5;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+  min-width: 90px;
+}
+
+.stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2937;
 }
 
 .sprite-colliding {

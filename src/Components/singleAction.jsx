@@ -53,6 +53,22 @@ export const SingleAction = (props) => {
       case 'Play Laugh Sound': return 'Play a laughing sound effect';
       case 'Increase Volume': return 'Increase the volume of sound effects';
       case 'Decrease Volume': return 'Decrease the volume of sound effects';
+      case 'Wait 1 second': return 'Pause actions briefly for one second';
+      case 'Stop all': return 'Stop all running actions immediately';
+      case 'When green flag clicked': return 'Trigger an event when the green flag is clicked';
+      case 'When sprite clicked': return 'Trigger an event when a sprite is clicked';
+      case 'Broadcast message': return 'Broadcast a message to all sprites';
+      case 'Touching sprite?': return 'Check whether sprites are touching';
+      case 'Touching edge?': return 'Check whether the sprite is touching the stage edge';
+      case 'Sprite position report': return 'Report the current sprite position';
+      case 'Pick random 1 to 10': return 'Pick a random number between 1 and 10';
+      case 'Add 5 + 10': return 'Compute 5 + 10';
+      case 'Is score > 10?': return 'Check whether score is greater than 10';
+      case 'Set score to 0': return 'Reset score to 0';
+      case 'Change score by 1': return 'Increase score by 1';
+      case 'Change score by -1': return 'Decrease score by 1';
+      case 'Custom spin': return 'Run a custom spin block';
+      case 'Custom bounce': return 'Run a custom bounce block';
       default: return todo;
     }
   };

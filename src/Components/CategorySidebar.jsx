@@ -25,16 +25,20 @@ const categories = [
 export const CategorySidebar = ({ activeCategory, onCategoryClick }) => {
     return (
         <Box
+            className="category-sidebar"
             sx={{
-                width: '60px',
+                width: { xs: '100%', lg: '60px' },
                 backgroundColor: '#ffffff',
-                borderRight: '1px solid #e0e0e0',
+                borderRight: { xs: 'none', lg: '1px solid #e0e0e0' },
+                borderBottom: { xs: '1px solid #e0e0e0', lg: 'none' },
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-                padding: '8px 0',
-                height: '70vh',
-                overflowY: 'auto'
+                flexDirection: { xs: 'row', lg: 'column' },
+                gap: { xs: '4px', lg: '8px' },
+                padding: { xs: '8px', lg: '8px 0' },
+                height: { xs: 'auto', lg: '70vh' },
+                overflowX: { xs: 'auto', lg: 'hidden' },
+                overflowY: { xs: 'hidden', lg: 'auto' },
+                boxShadow: { xs: 'none', lg: '0 4px 12px rgba(0,0,0,0.08)' }
             }}
         >
             {categories.map((category) => {
@@ -46,14 +50,23 @@ export const CategorySidebar = ({ activeCategory, onCategoryClick }) => {
                         key={category.name}
                         onClick={() => onCategoryClick(category.name)}
                         sx={{
-                            width: '100%',
+                            width: { xs: 'auto', lg: '100%' },
+                            minWidth: { xs: '72px', lg: 'auto' },
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
-                            padding: '8px 0',
+                            padding: { xs: '6px 4px', lg: '8px 0' },
                             cursor: 'pointer',
                             backgroundColor: isActive ? `${category.color}20` : 'transparent',
-                            borderLeft: isActive ? `4px solid ${category.color}` : '4px solid transparent',
+                            borderLeft: {
+                                xs: '4px solid transparent',
+                                lg: isActive ? `4px solid ${category.color}` : '4px solid transparent'
+                            },
+                            borderBottom: {
+                                xs: isActive ? `3px solid ${category.color}` : '3px solid transparent',
+                                lg: 'none'
+                            },
+                            borderRadius: { xs: '8px', lg: '0' },
                             '&:hover': {
                                 backgroundColor: `${category.color}10`,
                             }
