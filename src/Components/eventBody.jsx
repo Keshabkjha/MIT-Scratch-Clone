@@ -1537,6 +1537,7 @@ export const EventBody = (props) => {
         safeSetTimeout(() => {
             setIsReplaying(false);
             setReplayIndex(-1);
+            isReplayingRef.current = false;
             setIsAnimating(wasAnimatingBeforeReplay);
         }, actionQueue.length * 1000);
     };
@@ -1547,6 +1548,7 @@ export const EventBody = (props) => {
             clearAllTimeouts();
             setIsReplaying(false);
             setReplayIndex(-1);
+            isReplayingRef.current = false;
         } else {
             handleReplay();
         }
@@ -1558,6 +1560,7 @@ export const EventBody = (props) => {
         clearAllTimeouts();
         setIsReplaying(false);
         setReplayIndex(-1);
+        isReplayingRef.current = false;
     };
 
     return (
