@@ -97,6 +97,7 @@ export const EventBody = (props) => {
 
     const [actionQueue, setActionQueue] = React.useState([]);
     const [isReplaying, setIsReplaying] = React.useState(false);
+    const isReplayingRef = useRef(false);
     const [replayIndex, setReplayIndex] = React.useState(-1);
     const [spriteFilter, setSpriteFilter] = React.useState('all');
     const [showAnalytics, setShowAnalytics] = useState(false);
@@ -109,6 +110,10 @@ export const EventBody = (props) => {
     useEffect(() => {
         scoreRef.current = score;
     }, [score]);
+
+    useEffect(() => {
+        isReplayingRef.current = isReplaying;
+    }, [isReplaying]);
 
     useEffect(() => {
         const container = movesContainerRef.current;
@@ -184,7 +189,7 @@ export const EventBody = (props) => {
 
     function moveUp (i, action1) {
         //move up top - 50
-        pushActionToQueue(action1 ? 1 : 2, 'move', '-50 steps');
+        pushActionToQueue(action1 ? 1 : 2, 'move', '-50 steps', 'Move up 50 steps');
         safeSetTimeout(() => {
             let temp = parseInt(action1 ? t.slice(0,-1):t2.slice(0,-1));
             temp = temp - 50;
@@ -197,7 +202,7 @@ export const EventBody = (props) => {
     }
     function moveDown (i, action1) {  
         //move down top + 50    
-        pushActionToQueue(action1 ? 1 : 2, 'move', '50 steps');
+        pushActionToQueue(action1 ? 1 : 2, 'move', '50 steps', 'Move down 50 steps');
         safeSetTimeout(() => {
             let temp = parseInt(action1 ? t.slice(0,-1):t2.slice(0,-1));
             temp = temp + 50;
@@ -210,7 +215,7 @@ export const EventBody = (props) => {
     }
     function moveRight (i, action1) {
         //move right right+50
-        pushActionToQueue(action1 ? 1 : 2, 'move', '50 steps');
+        pushActionToQueue(action1 ? 1 : 2, 'move', '50 steps', 'Move 50 steps');
         safeSetTimeout(() => {
             let temp = parseInt(action1 ?r.slice(0,-1):r2.slice(0,-1));
             temp = temp + 50;
@@ -223,7 +228,7 @@ export const EventBody = (props) => {
     }
     function moveLeft(i, action1) {
         //move right right-50 
-        pushActionToQueue(action1 ? 1 : 2, 'move', '-50 steps');
+        pushActionToQueue(action1 ? 1 : 2, 'move', '-50 steps', 'Move -50 steps');
         safeSetTimeout(() => {
             let temp = parseInt(action1 ? r.slice(0,-1):r2.slice(0,-1));
             temp = temp - 50;
@@ -236,7 +241,7 @@ export const EventBody = (props) => {
     }
     function sayHello(i, action1){
         setCurrentAction('Say Hello for 5 sec');
-        pushActionToQueue(action1 ? 1 : 2, 'say', 'Hello');
+        pushActionToQueue(action1 ? 1 : 2, 'say', 'Hello', 'Say Hello for 5 sec');
         safeSetTimeout(() => {
             action1 ? setHello(true) : setHello2(true);
         }, i * 1500);
@@ -250,7 +255,7 @@ export const EventBody = (props) => {
     }
 
     function thinkHmmm(i, action1){
-        pushActionToQueue(action1 ? 1 : 2, 'think', 'Hmmm');
+        pushActionToQueue(action1 ? 1 : 2, 'think', 'Hmmm', 'Think Hmmm for 3 sec');
         safeSetTimeout(() => {
             setCurrentAction('Think Hmmm for 3 sec');
             action1 ? setThink(true) : setThink2(true);
@@ -265,7 +270,7 @@ export const EventBody = (props) => {
     }
 
     function sayBye(i, action1){
-        pushActionToQueue(action1 ? 1 : 2, 'say', 'Bye');
+        pushActionToQueue(action1 ? 1 : 2, 'say', 'Bye', 'Say Bye');
         safeSetTimeout(()=>{
             setCurrentAction('Say Bye');
             // Clear any existing messages first
@@ -291,7 +296,7 @@ export const EventBody = (props) => {
     }
 
     function sayHii(i, action1){
-        pushActionToQueue(action1 ? 1 : 2, 'say', 'Hii');
+        pushActionToQueue(action1 ? 1 : 2, 'say', 'Hii', 'Say Hii');
         safeSetTimeout(()=>{
             setCurrentAction('Say Hii');
             // Clear any existing messages first
@@ -317,7 +322,7 @@ export const EventBody = (props) => {
     }
 
     function thinkSeeYou(i, action1){
-        pushActionToQueue(action1 ? 1 : 2, 'think', 'See you');
+        pushActionToQueue(action1 ? 1 : 2, 'think', 'See you', 'Think See you');
         safeSetTimeout(()=>{
             setCurrentAction('Think See you');
             // Clear any existing messages first
@@ -344,7 +349,8 @@ export const EventBody = (props) => {
 
     function moveXY(xInput, yInput, random, i, action1) {
         // combined function to move to random postion and to x, y cordinates  
-        pushActionToQueue(action1 ? 1 : 2, 'move', `(${xInput}, ${yInput})`);
+        const actionName = random ? 'Go to random position' : 'Go to coordinates';
+        pushActionToQueue(action1 ? 1 : 2, 'move', `(${xInput}, ${yInput})`, actionName);
         safeSetTimeout(()=>{
             let tempR = parseInt(action1 ? r.slice(0,-1) : r2.slice(0,-1));
             let tempT = parseInt(action1 ? t.slice(0,-1) : t2.slice(0,-1));
@@ -382,7 +388,7 @@ export const EventBody = (props) => {
         }, (i * 1500));
     }
     const rotate = (rAngle,i, action1) =>{
-        pushActionToQueue(action1 ? 1 : 2, 'turn', `${rAngle} degrees`);
+        pushActionToQueue(action1 ? 1 : 2, 'turn', `${rAngle} degrees`, `turn ${rAngle} degrees`);
         safeSetTimeout(() => {
             //rotate the sprite 
             action1 ? angle += rAngle : angle2+=rAngle;
@@ -397,7 +403,8 @@ export const EventBody = (props) => {
         if(size) {
             const isFirstSprite = activeSprite === 1;
             let newScale = size === 'medium' ? 2 : (size === 'large' ? 3 : 1);
-            pushActionToQueue(isFirstSprite ? 1 : 2, 'scale', size);
+            const sizeLabel = size === 'medium' ? 'Set size medium' : (size === 'large' ? 'Set size large' : 'Set size small');
+            pushActionToQueue(isFirstSprite ? 1 : 2, 'scale', size, sizeLabel);
             if(isFirstSprite) {
                 scale = newScale;
                 ref.current.style.transform = `scale(${newScale}) translate(${r}, ${t}) rotate(${angle}deg)`;
@@ -410,7 +417,7 @@ export const EventBody = (props) => {
         
         // If no size provided, we're using the action items (increase/decrease)
         if(increase) {
-            pushActionToQueue(action1 ? 1 : 2, 'scale', 'increase');
+            pushActionToQueue(action1 ? 1 : 2, 'scale', 'increase', 'size increase');
             safeSetTimeout(() => {
                 action1 ? scale += 0.2 : scale2 += 0.2;
                 if(action1){
@@ -427,7 +434,7 @@ export const EventBody = (props) => {
             }, idx*1500);
             return;
         } else {
-            pushActionToQueue(action1 ? 1 : 2, 'scale', 'decrease');
+            pushActionToQueue(action1 ? 1 : 2, 'scale', 'decrease', 'size decrease');
             safeSetTimeout(() => {
                 action1 ? scale -= 0.2 : scale2 -= 0.2;
                 if(action1){
@@ -480,8 +487,8 @@ export const EventBody = (props) => {
         }, i * 1500);
     }
 
-    const announceEvent = (message, action1) => {
-        pushActionToQueue(action1 ? 1 : 2, 'event', message);
+    const announceEvent = (message, action1, actionName = message) => {
+        pushActionToQueue(action1 ? 1 : 2, 'event', message, actionName);
         toast.info(message, {
             position: "top-center",
             autoClose: 1000,
@@ -491,9 +498,9 @@ export const EventBody = (props) => {
         });
     };
 
-    const handleSensingResult = (label, result, action1) => {
+    const handleSensingResult = (label, result, action1, actionName = label) => {
         const resultLabel = result ? 'yes' : 'no';
-        pushActionToQueue(action1 ? 1 : 2, 'sensing', `${label}: ${resultLabel}`);
+        pushActionToQueue(action1 ? 1 : 2, 'sensing', `${label}: ${resultLabel}`, actionName, { result });
         toast.info(`${label}: ${resultLabel}`, {
             position: "top-center",
             autoClose: 1000,
@@ -503,9 +510,9 @@ export const EventBody = (props) => {
         });
     };
 
-    const handleOperatorResult = (label, value, action1) => {
+    const handleOperatorResult = (label, value, action1, actionName = label) => {
         setOperatorResult(value);
-        pushActionToQueue(action1 ? 1 : 2, 'operator', `${label}: ${value}`);
+        pushActionToQueue(action1 ? 1 : 2, 'operator', `${label}: ${value}`, actionName, { result: value });
         toast.info(`${label}: ${value}`, {
             position: "top-center",
             autoClose: 1000,
@@ -515,12 +522,12 @@ export const EventBody = (props) => {
         });
     };
 
-    const updateScore = (updater, action1) => {
+    const updateScore = (updater, action1, actionName = 'Update score') => {
         const currentScore = scoreRef.current;
         const nextScore = typeof updater === 'function' ? updater(currentScore) : updater;
         scoreRef.current = nextScore;
         setScore(nextScore);
-        pushActionToQueue(action1 ? 1 : 2, 'variable', `score ${nextScore}`);
+        pushActionToQueue(action1 ? 1 : 2, 'variable', `score ${nextScore}`, actionName, { score: nextScore });
         toast.info(`Score: ${nextScore}`, {
             position: "top-center",
             autoClose: 1000,
@@ -531,14 +538,14 @@ export const EventBody = (props) => {
     };
 
     const runSpinJump = (action1) => {
-        pushActionToQueue(action1 ? 1 : 2, 'custom', 'Spin jump');
+        pushActionToQueue(action1 ? 1 : 2, 'custom', 'Spin jump', 'Spin jump');
         rotate(360, IMMEDIATE_ACTION_INDEX, action1);
         moveUp(IMMEDIATE_ACTION_INDEX, action1);
         safeSetTimeout(() => moveDown(IMMEDIATE_ACTION_INDEX, action1), SPIN_JUMP_DELAY);
     };
 
     const runWiggle = (action1) => {
-        pushActionToQueue(action1 ? 1 : 2, 'custom', 'Wiggle');
+        pushActionToQueue(action1 ? 1 : 2, 'custom', 'Wiggle', 'Wiggle');
         rotate(WIGGLE_ANGLE, IMMEDIATE_ACTION_INDEX, action1);
         safeSetTimeout(() => rotate(WIGGLE_SWING_ANGLE, IMMEDIATE_ACTION_INDEX, action1), WIGGLE_STEP_DELAY);
         safeSetTimeout(() => rotate(WIGGLE_ANGLE, IMMEDIATE_ACTION_INDEX, action1), WIGGLE_RETURN_DELAY);
@@ -718,11 +725,11 @@ export const EventBody = (props) => {
                 break;
             }
             case 'When flag clicked': {
-                safeSetTimeout(() => announceEvent('Green flag clicked!', action1), delay);
+                safeSetTimeout(() => announceEvent('Green flag clicked!', action1, 'When flag clicked'), delay);
                 break;
             }
             case 'Broadcast hello': {
-                safeSetTimeout(() => announceEvent('Broadcast: hello!', action1), delay);
+                safeSetTimeout(() => announceEvent('Broadcast: hello!', action1, 'Broadcast hello'), delay);
                 break;
             }
             case 'Touching edge?': {
@@ -731,7 +738,7 @@ export const EventBody = (props) => {
                     const currentY = parseInt(action1 ? t : t2, 10);
                     const touchingEdge = Math.abs(currentX) >= STAGE_BOUNDARY_X
                         || Math.abs(currentY) >= STAGE_BOUNDARY_Y;
-                    handleSensingResult('Touching edge', touchingEdge, action1);
+                    handleSensingResult('Touching edge', touchingEdge, action1, 'Touching edge?');
                 }, delay);
                 break;
             }
@@ -739,30 +746,30 @@ export const EventBody = (props) => {
                 safeSetTimeout(() => {
                     const shouldCheckCollision = !displayAddIcon && sprite2;
                     const isTouchingSprite = shouldCheckCollision ? checkCollisionCallback() : false;
-                    handleSensingResult('Touching sprite', isTouchingSprite, action1);
+                    handleSensingResult('Touching sprite', isTouchingSprite, action1, 'Touching sprite?');
                 }, delay);
                 break;
             }
             case 'Pick random 1 to 10': {
                 safeSetTimeout(() => {
                     const value = Math.floor(Math.random() * 10) + 1;
-                    handleOperatorResult('Random 1-10', value, action1);
+                    handleOperatorResult('Random 1-10', value, action1, 'Pick random 1 to 10');
                 }, delay);
                 break;
             }
             case 'Score + 5': {
                 safeSetTimeout(() => {
                     const value = scoreRef.current + 5;
-                    handleOperatorResult('Score + 5', value, action1);
+                    handleOperatorResult('Score + 5', value, action1, 'Score + 5');
                 }, delay);
                 break;
             }
             case 'Set score to 0': {
-                safeSetTimeout(() => updateScore(0, action1), delay);
+                safeSetTimeout(() => updateScore(0, action1, 'Set score to 0'), delay);
                 break;
             }
             case 'Change score by 1': {
-                safeSetTimeout(() => updateScore(prevScore => prevScore + 1, action1), delay);
+                safeSetTimeout(() => updateScore(prevScore => prevScore + 1, action1, 'Change score by 1'), delay);
                 break;
             }
             case 'Spin jump': {
@@ -1358,45 +1365,169 @@ export const EventBody = (props) => {
     }, []);
 
     // Helper to push actions to the queue
-    const pushActionToQueue = (spriteId, type, value) => {
+    const pushActionToQueue = (spriteId, type, value, actionName, metadata = {}) => {
+        if (isReplayingRef.current) {
+            return;
+        }
         setActionQueue(prev => [
             ...prev,
             {
                 spriteId,
                 type,
                 value,
+                actionName: actionName || value,
+                ...metadata,
                 timestamp: Date.now(),
             },
         ]);
     };
 
+    const parseCoordinates = (value) => {
+        if (!value) return null;
+        const match = value.match(/\((-?\d+)\s*,\s*(-?\d+)\)/);
+        if (!match) return null;
+        return { x: Number(match[1]), y: Number(match[2]) };
+    };
+
+    const runReplayAction = (action) => {
+        const actionName = action.actionName || action.value || action.type;
+        const action1 = action.spriteId === 1;
+        if (!actionName) return;
+
+        switch (actionName) {
+            case 'Move 50 steps':
+                moveRight(IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'Move -50 steps':
+                moveLeft(IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'Move up 50 steps':
+                moveUp(IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'Move down 50 steps':
+                moveDown(IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'turn 45 degrees':
+                rotate(45, IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'turn 90 degrees':
+                rotate(90, IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'turn 135 degrees':
+                rotate(135, IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'turn 180 degrees':
+                rotate(180, IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'turn 360 degrees':
+                rotate(360, IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'Go to coordinates': {
+                const coords = parseCoordinates(action.value);
+                if (coords) {
+                    moveXY(coords.x, coords.y, false, IMMEDIATE_ACTION_INDEX, action1);
+                }
+                break;
+            }
+            case 'Set size small':
+                handleScale('small', null, IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'Set size medium':
+                handleScale('medium', null, IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'Set size large':
+                handleScale('large', null, IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'size increase':
+                handleScale(null, true, IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'size decrease':
+                handleScale(null, false, IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'Say Hello for 5 sec':
+                sayHello(IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'Think Hmmm for 3 sec':
+                thinkHmmm(IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'Say Bye':
+                sayBye(IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'Say Hii':
+                sayHii(IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'Think See you':
+                thinkSeeYou(IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'show':
+                showSprite(IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'hide':
+                hideSprite(IMMEDIATE_ACTION_INDEX, action1);
+                break;
+            case 'When flag clicked':
+                announceEvent(action.value || 'Green flag clicked!', action1, 'When flag clicked');
+                break;
+            case 'Broadcast hello':
+                announceEvent(action.value || 'Broadcast: hello!', action1, 'Broadcast hello');
+                break;
+            case 'Touching edge?':
+                if (typeof action.result !== 'boolean') return;
+                handleSensingResult('Touching edge', action.result, action1, 'Touching edge?');
+                break;
+            case 'Touching sprite?':
+                if (typeof action.result !== 'boolean') return;
+                handleSensingResult('Touching sprite', action.result, action1, 'Touching sprite?');
+                break;
+            case 'Pick random 1 to 10': {
+                if (typeof action.result !== 'number') return;
+                handleOperatorResult('Random 1-10', action.result, action1, 'Pick random 1 to 10');
+                break;
+            }
+            case 'Score + 5': {
+                if (typeof action.result !== 'number') return;
+                handleOperatorResult('Score + 5', action.result, action1, 'Score + 5');
+                break;
+            }
+            case 'Set score to 0': {
+                const scoreValue = typeof action.score === 'number' ? action.score : 0;
+                updateScore(scoreValue, action1, 'Set score to 0');
+                break;
+            }
+            case 'Change score by 1': {
+                if (typeof action.score === 'number') {
+                    updateScore(action.score, action1, 'Change score by 1');
+                } else {
+                    updateScore((prevScore) => prevScore + 1, action1, 'Change score by 1');
+                }
+                break;
+            }
+            case 'Spin jump':
+                runSpinJump(action1);
+                break;
+            case 'Wiggle':
+                runWiggle(action1);
+                break;
+            default:
+                break;
+        }
+    };
+
     // Function to handle replay
     const handleReplay = () => {
         if (actionQueue.length === 0) return;
-        
+        clearAllTimeouts();
+
+        const wasAnimatingBeforeReplay = isAnimating;
+        setIsAnimating(true);
         setIsReplaying(true);
         setReplayIndex(-1);
-        
+        isReplayingRef.current = true;
+
         actionQueue.forEach((action, index) => {
             safeSetTimeout(() => {
                 setReplayIndex(index);
-                // Execute the action based on its type
-                if (action.type === 'move') {
-                    // Handle move action
-                    const sprite = action.spriteId === 1 ? ref.current : ref2.current;
-                    if (sprite) {
-                        const currentX = parseInt(sprite.style.left);
-                        sprite.style.left = `${currentX + parseInt(action.value)}px`;
-                    }
-                } else if (action.type === 'turn') {
-                    // Handle turn action
-                    const sprite = action.spriteId === 1 ? ref.current : ref2.current;
-                    if (sprite) {
-                        const currentRotation = parseInt(sprite.style.transform.replace('rotate(', '').replace('deg)', '') || 0);
-                        sprite.style.transform = `rotate(${currentRotation + parseInt(action.value)}deg)`;
-                    }
-                }
-                // Add more action types as needed
+                runReplayAction(action);
             }, index * 1000); // 1 second delay between actions
         });
 
@@ -1404,6 +1535,8 @@ export const EventBody = (props) => {
         safeSetTimeout(() => {
             setIsReplaying(false);
             setReplayIndex(-1);
+            isReplayingRef.current = false;
+            setIsAnimating(wasAnimatingBeforeReplay);
         }, actionQueue.length * 1000);
     };
 
@@ -1412,6 +1545,8 @@ export const EventBody = (props) => {
         if (isReplaying) {
             clearAllTimeouts();
             setIsReplaying(false);
+            setReplayIndex(-1);
+            isReplayingRef.current = false;
         } else {
             handleReplay();
         }
@@ -1423,6 +1558,7 @@ export const EventBody = (props) => {
         clearAllTimeouts();
         setIsReplaying(false);
         setReplayIndex(-1);
+        isReplayingRef.current = false;
     };
 
     return (
