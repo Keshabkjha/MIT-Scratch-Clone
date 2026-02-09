@@ -46,10 +46,10 @@ const style = {
     top: '50%',
     left: '50%',
     transform: 'translate(-50%, -50%)',
-    width: 600,
+    width: { xs: '92vw', sm: 600 },
     bgcolor: 'background.paper',
     boxShadow: 24,
-    p: 4,
+    p: { xs: 2, sm: 4 },
     borderRadius: 2,
     maxHeight: '80vh',
     overflow: 'auto'
@@ -101,7 +101,7 @@ export const LibraryModal = ({ open, onClose, type, onSelect, onUpload, onDelete
         <Modal open={open} onClose={onClose}>
             <Box sx={style}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <h2>{type === 'sprite' ? 'Choose a Sprite' : 'Choose a Image'}</h2>
+                    <h2>{type === 'sprite' ? 'Choose a Sprite' : 'Choose an Image'}</h2>
                     <IconButton onClick={onClose}>
                         <CloseIcon />
                     </IconButton>
@@ -113,10 +113,10 @@ export const LibraryModal = ({ open, onClose, type, onSelect, onUpload, onDelete
                 </Tabs>
 
                 {activeTab === 0 && (
-                    <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
-                        {items.map((item, index) => (
+                    <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: { xs: 'repeat(2, 1fr)', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
+                        {items.map((item) => (
                             <Box 
-                                key={index}
+                                key={`${type}-${item.name}`}
                                 sx={{
                                     border: '1px solid #ddd',
                                     borderRadius: 1,

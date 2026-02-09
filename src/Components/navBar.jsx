@@ -15,6 +15,9 @@ export const NavBar = ({ projectName, onProjectNameChange, savedAtLabel, onSave,
 
   const handleFilePick = (event) => {
     const [file] = event.target.files || [];
+    if (!file) {
+      return;
+    }
     if (onImport) {
       onImport(file);
     }

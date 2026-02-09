@@ -174,6 +174,6 @@ export const CATEGORIES = {
 };
 
 export const WARN_MSG_SIZE = 'Size out of bounds';
-export const WARN_MSG_POS = 'Position out of  bounds';
+export const WARN_MSG_POS = 'Position out of bounds';
 
 export const PAGES = [];

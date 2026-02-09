@@ -20,7 +20,6 @@ export const Sprites = (props) => {
 
   ];
   function handleClick(src) {
-    console.log('clicked')
     displayAddIcon ? setSprite(src): setSprite2(src);
   };
   return (
@@ -37,6 +36,7 @@ export const Sprites = (props) => {
     >
         {spriteProps.map((item)=>(
             <Box
+                key={item.id}
                 sx={{
                     background:sprite !== item.src && sprite2 !== item.src ? 'white':'#4d97ff',
                     borderRadius:'20px',

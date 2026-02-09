@@ -96,8 +96,6 @@ export const EventBody = (props) => {
     const [spriteFilter, setSpriteFilter] = React.useState('all');
     const [showAnalytics, setShowAnalytics] = useState(false);
 
-    console.log("rendering...");
-
     useEffect(() => {
         const container = movesContainerRef.current;
         if (!container) return;

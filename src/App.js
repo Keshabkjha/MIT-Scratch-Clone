@@ -150,7 +150,6 @@ export default function App() {
   
   const onHandleDragEnd = (result) =>{
     const {source, destination} = result;
-    console.log(source, destination)
     if (!destination) {
       return;
     }

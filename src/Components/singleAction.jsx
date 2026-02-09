@@ -9,10 +9,9 @@ export const SingleAction = (props) => {
   const { move, moves, setMoves, index, disableDelete=false, refresh} = props;
 
   const handleDelete = (idx) => {
-    let active = moves;
+    const active = [...moves];
     active.splice(idx, 1);
-    let arr = [];
-    setMoves(arr.concat(active));
+    setMoves(active);
     // Call refresh to reset all states and positions
     if (refresh) {
       refresh();
