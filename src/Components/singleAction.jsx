@@ -53,6 +53,16 @@ export const SingleAction = (props) => {
       case 'Play Laugh Sound': return 'Play a laughing sound effect';
       case 'Increase Volume': return 'Increase the volume of sound effects';
       case 'Decrease Volume': return 'Decrease the volume of sound effects';
+      case 'When flag clicked': return 'Start actions when the green flag is pressed';
+      case 'Broadcast hello': return 'Broadcast a greeting event to the stage';
+      case 'Touching edge?': return 'Check if the sprite is touching the edge';
+      case 'Touching sprite?': return 'Check if the sprite is touching another sprite';
+      case 'Pick random 1 to 10': return 'Generate a random number between 1 and 10';
+      case 'Score + 5': return 'Calculate the score plus 5';
+      case 'Set score to 0': return 'Reset the score to zero';
+      case 'Change score by 1': return 'Increase the score by one';
+      case 'Spin jump': return 'Run the custom spin and jump block';
+      case 'Wiggle': return 'Run the custom wiggle block';
       default: return todo;
     }
   };

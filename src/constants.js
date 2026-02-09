@@ -165,7 +165,12 @@ export const CATEGORIES = {
   Motion: '#4C97FF',
   Looks: '#9966FF',
   Sound: '#CF63CF',
-  Control: '#FFAB19'
+  Control: '#FFAB19',
+  Events: '#FFD500',
+  Sensing: '#5CB1D6',
+  Operators: '#59C059',
+  Variables: '#FF8C1A',
+  'My Blocks': '#FF6680'
 };
 
 export const WARN_MSG_SIZE = 'Size out of bounds';

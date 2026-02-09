@@ -92,8 +92,15 @@ export const EventBody = (props) => {
     const [replayIndex, setReplayIndex] = React.useState(-1);
     const [spriteFilter, setSpriteFilter] = React.useState('all');
     const [showAnalytics, setShowAnalytics] = useState(false);
+    const [score, setScore] = React.useState(0);
+    const [operatorResult, setOperatorResult] = React.useState(null);
+    const scoreRef = useRef(0);
 
     console.log("rendering...");
+
+    useEffect(() => {
+        scoreRef.current = score;
+    }, [score]);
 
     useEffect(() => {
         const container = movesContainerRef.current;
@@ -465,6 +472,70 @@ export const EventBody = (props) => {
         }, i * 1500);
     }
 
+    const announceEvent = (message, action1) => {
+        pushActionToQueue(action1 ? 1 : 2, 'event', message);
+        toast.info(message, {
+            position: "top-center",
+            autoClose: 1000,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true
+        });
+    };
+
+    const handleSensingResult = (label, result, action1) => {
+        const resultLabel = result ? 'yes' : 'no';
+        pushActionToQueue(action1 ? 1 : 2, 'sensing', `${label}: ${resultLabel}`);
+        toast.info(`${label}: ${resultLabel}`, {
+            position: "top-center",
+            autoClose: 1000,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true
+        });
+    };
+
+    const handleOperatorResult = (label, value, action1) => {
+        setOperatorResult(value);
+        pushActionToQueue(action1 ? 1 : 2, 'operator', `${label}: ${value}`);
+        toast.info(`${label}: ${value}`, {
+            position: "top-center",
+            autoClose: 1000,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true
+        });
+    };
+
+    const updateScore = (updater, action1) => {
+        const currentScore = scoreRef.current;
+        const nextScore = typeof updater === 'function' ? updater(currentScore) : updater;
+        scoreRef.current = nextScore;
+        setScore(nextScore);
+        pushActionToQueue(action1 ? 1 : 2, 'variable', `score ${nextScore}`);
+        toast.info(`Score: ${nextScore}`, {
+            position: "top-center",
+            autoClose: 1000,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true
+        });
+    };
+
+    const runSpinJump = (action1) => {
+        pushActionToQueue(action1 ? 1 : 2, 'custom', 'Spin jump');
+        rotate(360, 0, action1);
+        moveUp(0, action1);
+        safeSetTimeout(() => moveDown(0, action1), 600);
+    };
+
+    const runWiggle = (action1) => {
+        pushActionToQueue(action1 ? 1 : 2, 'custom', 'Wiggle');
+        rotate(15, 0, action1);
+        safeSetTimeout(() => rotate(-30, 0, action1), 300);
+        safeSetTimeout(() => rotate(15, 0, action1), 600);
+    };
+
     const startActions = (action, idx, action1) => {
         if (!isAnimating) return;
         const delay = idx * 1500;
@@ -636,6 +707,60 @@ export const EventBody = (props) => {
                     // Play a test sound to demonstrate volume change
                     playSound('pop', newVolume);
                 }, delay);
+                break;
+            }
+            case 'When flag clicked': {
+                safeSetTimeout(() => announceEvent('Green flag clicked!', action1), delay);
+                break;
+            }
+            case 'Broadcast hello': {
+                safeSetTimeout(() => announceEvent('Broadcast: hello!', action1), delay);
+                break;
+            }
+            case 'Touching edge?': {
+                safeSetTimeout(() => {
+                    const currentX = parseInt(action1 ? r : r2, 10);
+                    const currentY = parseInt(action1 ? t : t2, 10);
+                    const touchingEdge = Math.abs(currentX) >= 290 || Math.abs(currentY) >= 140;
+                    handleSensingResult('Touching edge', touchingEdge, action1);
+                }, delay);
+                break;
+            }
+            case 'Touching sprite?': {
+                safeSetTimeout(() => {
+                    const touchingSprite = !displayAddIcon && sprite2 ? checkCollisionCallback() : false;
+                    handleSensingResult('Touching sprite', touchingSprite, action1);
+                }, delay);
+                break;
+            }
+            case 'Pick random 1 to 10': {
+                safeSetTimeout(() => {
+                    const value = Math.floor(Math.random() * 10) + 1;
+                    handleOperatorResult('Random 1-10', value, action1);
+                }, delay);
+                break;
+            }
+            case 'Score + 5': {
+                safeSetTimeout(() => {
+                    const value = scoreRef.current + 5;
+                    handleOperatorResult('Score + 5', value, action1);
+                }, delay);
+                break;
+            }
+            case 'Set score to 0': {
+                safeSetTimeout(() => updateScore(0, action1), delay);
+                break;
+            }
+            case 'Change score by 1': {
+                safeSetTimeout(() => updateScore(prev => prev + 1, action1), delay);
+                break;
+            }
+            case 'Spin jump': {
+                safeSetTimeout(() => runSpinJump(action1), delay);
+                break;
+            }
+            case 'Wiggle': {
+                safeSetTimeout(() => runWiggle(action1), delay);
                 break;
             }
             default: break;
@@ -1315,6 +1440,11 @@ export const EventBody = (props) => {
                             {renderCategory('Looks', null, moves)}
                             {renderCategory('Sound', null, moves)}
                             {renderCategory('Control', null, moves)}
+                            {renderCategory('Events', null, moves)}
+                            {renderCategory('Sensing', null, moves)}
+                            {renderCategory('Operators', null, moves)}
+                            {renderCategory('Variables', null, moves)}
+                            {renderCategory('My Blocks', null, moves)}
                             {provided.placeholder}
                         </div>
                     )}
@@ -1403,6 +1533,22 @@ export const EventBody = (props) => {
                             }}
                         />
                     )}
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: '12px',
+                            left: '12px',
+                            background: 'rgba(255, 255, 255, 0.9)',
+                            padding: '6px 8px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                            color: '#575e75'
+                        }}
+                    >
+                        <div>Score: {score}</div>
+                        <div>Result: {operatorResult ?? '--'}</div>
+                    </div>
                     {collisionEffects.swapArrows && (
                         <div 
                             className="swap-arrows"
