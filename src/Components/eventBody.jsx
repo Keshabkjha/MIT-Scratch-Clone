@@ -1386,7 +1386,7 @@ export const EventBody = (props) => {
         if (!value) return null;
         const match = value.match(/\((-?\d+)\s*,\s*(-?\d+)\)/);
         if (!match) return null;
-        return { x: match[1], y: match[2] };
+        return { x: Number(match[1]), y: Number(match[2]) };
     };
 
     const runReplayAction = (action) => {
@@ -1520,7 +1520,7 @@ export const EventBody = (props) => {
         if (actionQueue.length === 0) return;
         clearAllTimeouts();
 
-        const previousAnimating = isAnimating;
+        const wasAnimatingBeforeReplay = isAnimating;
         setIsAnimating(true);
         setIsReplaying(true);
         setReplayIndex(-1);
@@ -1537,7 +1537,7 @@ export const EventBody = (props) => {
         safeSetTimeout(() => {
             setIsReplaying(false);
             setReplayIndex(-1);
-            setIsAnimating(previousAnimating);
+            setIsAnimating(wasAnimatingBeforeReplay);
         }, actionQueue.length * 1000);
     };
 
