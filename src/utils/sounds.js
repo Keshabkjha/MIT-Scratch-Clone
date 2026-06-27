@@ -49,7 +49,6 @@ export const initAudio = () => {
             audioContext = new (window.AudioContext || window.webkitAudioContext)();
             gainNode = audioContext.createGain();
             gainNode.connect(audioContext.destination);
-            console.log('Audio context initialized:', audioContext.state);
         } catch (error) {
             console.error('Failed to create audio context:', error);
             return null;

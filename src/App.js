@@ -3,32 +3,50 @@ import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 import { EventBody } from './Components/eventBody'
 import { NavBar } from './Components/navBar';
-import { DragDropContext} from "react-beautiful-dnd";
+import { DragDropContext } from "@hello-pangea/dnd";
+import { v4 as uuidv4 } from "uuid";
 import { moves as initialMoves } from "./data/moves";
 import useProjectPersistence, { CURRENT_PROJECT_VERSION } from './hooks/useProjectPersistence';
 
+const CAT_IMAGE = require('./Assets/images/cat.png');
+
+const reorder = (list, startIndex, endIndex) => {
+  const result = [...list];
+  const [removed] = result.splice(startIndex, 1);
+  result.splice(endIndex, 0, removed);
+  return result;
+};
+
 export default function App() {
   const [moves, setMoves] = useState(initialMoves);
-  const [actions, setActions]= useState([]);
-  const [actions2, setActions2]= useState([]);
+  const [actions, setActions] = useState([]);
+  const [actions2, setActions2] = useState([]);
   const [projectName, setProjectName] = useState('Scratch Project');
   const [statusMessage, setStatusMessage] = useState(null);
   const [statusType, setStatusType] = useState('success');
   const [toastOpen, setToastOpen] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(null);
 
+  // Stage / sprite state lifted here so it can be persisted with the project.
+  const [sprite, setSprite] = useState(CAT_IMAGE);
+  const [sprite2, setSprite2] = useState(null);
+  const [displayAddIcon, setDisplayAddIcon] = useState(true);
+  const [theme, setTheme] = useState(false);
+  const [backdropUrl, setBackdropUrl] = useState(null);
+  const [currentVolume, setCurrentVolume] = useState(1);
+
   const defaultProjectState = useMemo(() => ({
     version: CURRENT_PROJECT_VERSION,
     data: {
       blocks: initialMoves,
       scripts: { actions: [], actions2: [] },
-      sprites: [],
-      stage: {},
+      sprites: [CAT_IMAGE, null],
+      stage: { theme: false, backdropUrl: null },
       variables: {},
       positions: {},
       costumes: [],
       sounds: [],
-      settings: {}
+      settings: { displayAddIcon: true, currentVolume: 1 }
     },
     metadata: {
       name: 'Untitled',
@@ -41,19 +59,19 @@ export default function App() {
     data: {
       blocks: moves,
       scripts: { actions, actions2 },
-      sprites: [],
-      stage: {},
+      sprites: [sprite, sprite2],
+      stage: { theme, backdropUrl },
       variables: {},
       positions: {},
       costumes: [],
       sounds: [],
-      settings: {}
+      settings: { displayAddIcon, currentVolume }
     },
     metadata: {
       name: projectName,
       lastSaved: null
     }
-  }), [moves, actions, actions2, projectName]);
+  }), [moves, actions, actions2, projectName, sprite, sprite2, theme, backdropUrl, displayAddIcon, currentVolume]);
 
   const { saveProject, loadProject, exportProject, importProject } = useProjectPersistence({
     projectState,
@@ -68,13 +86,26 @@ export default function App() {
     setMoves(state.data.blocks || initialMoves);
     setActions(state.data.scripts?.actions || []);
     setActions2(state.data.scripts?.actions2 || []);
+
+    const sprites = Array.isArray(state.data.sprites) ? state.data.sprites : [];
+    setSprite(sprites[0] || CAT_IMAGE);
+    setSprite2(sprites[1] || null);
+
+    const stage = state.data.stage || {};
+    setTheme(Boolean(stage.theme));
+    setBackdropUrl(stage.backdropUrl || null);
+
+    const settings = state.data.settings || {};
+    setDisplayAddIcon(settings.displayAddIcon !== undefined ? settings.displayAddIcon : !sprites[1]);
+    setCurrentVolume(typeof settings.currentVolume === 'number' ? settings.currentVolume : 1);
+
     if (state.metadata?.name) {
       setProjectName(state.metadata.name);
     }
     if (state.metadata?.lastSaved) {
       setLastSavedAt(state.metadata.lastSaved);
     }
-  }, [setMoves, setActions, setActions2]);
+  }, []);
 
   const handleStatus = useCallback((message, type = 'success') => {
     setStatusMessage(message);
@@ -147,37 +178,71 @@ export default function App() {
     }
     setToastOpen(false);
   }, []);
-  
-  const onHandleDragEnd = (result) =>{
-    const {source, destination} = result;
-    console.log(source, destination)
+
+  const onHandleDragEnd = (result) => {
+    const { source, destination } = result;
     if (!destination) {
       return;
     }
 
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
+    const srcId = source.droppableId;
+    const dstId = destination.droppableId;
+
+    // Dragging a block out of the palette creates a fresh copy in the target list.
+    if (srcId === 'MovesList') {
+      if (dstId === 'MovesList') {
+        return;
+      }
+      const block = moves[source.index];
+      if (!block) {
+        return;
+      }
+      const newItem = { ...block, id: uuidv4() };
+      if (dstId === 'MovesActions') {
+        const next = [...actions];
+        next.splice(destination.index, 0, newItem);
+        setActions(next);
+      } else if (dstId === 'MovesActions2') {
+        const next = [...actions2];
+        next.splice(destination.index, 0, newItem);
+        setActions2(next);
+      }
       return;
     }
-    let add;
-    const active = [...moves];
-    const complete = [...actions];
-    const complete2 = [...actions2]; 
 
-    // take a move to drag and drop 
-    add = active[source.index];
+    // Reordering within the same action list.
+    if (srcId === dstId) {
+      if (source.index === destination.index) {
+        return;
+      }
+      if (srcId === 'MovesActions') {
+        setActions(reorder(actions, source.index, destination.index));
+      } else if (srcId === 'MovesActions2') {
+        setActions2(reorder(actions2, source.index, destination.index));
+      }
+      return;
+    }
 
-    // Destination Logic
-    const isFirstActionList = destination.droppableId === "MovesActions";
-    const nextActions = isFirstActionList ? [...complete, add] : complete;
-    const nextActions2 = isFirstActionList ? complete2 : [...complete2, add];
-    setActions(nextActions);
-    setActions2(nextActions2);
-    setMoves(active);
-  }
-  
+    // Moving a block between the two action lists.
+    const sourceList = srcId === 'MovesActions' ? [...actions] : [...actions2];
+    const destList = dstId === 'MovesActions' ? [...actions] : [...actions2];
+    const [moved] = sourceList.splice(source.index, 1);
+    if (!moved) {
+      return;
+    }
+    destList.splice(destination.index, 0, moved);
+    if (srcId === 'MovesActions') {
+      setActions(sourceList);
+    } else {
+      setActions2(sourceList);
+    }
+    if (dstId === 'MovesActions') {
+      setActions(destList);
+    } else {
+      setActions2(destList);
+    }
+  };
+
   return (
     <div className="bg-blue-100 font-sans text-center">
       <NavBar
@@ -194,16 +259,28 @@ export default function App() {
           {statusMessage}
         </Alert>
       </Snackbar>
-        <DragDropContext onDragEnd={onHandleDragEnd}>
-          <EventBody 
-            moves={moves} 
-            setMoves={setMoves} 
-            actions={actions}
-            actions2={actions2}
-            setActions2={setActions2}
-            setActions={setActions}  
-          />
-        </DragDropContext>
+      <DragDropContext onDragEnd={onHandleDragEnd}>
+        <EventBody
+          moves={moves}
+          setMoves={setMoves}
+          actions={actions}
+          actions2={actions2}
+          setActions2={setActions2}
+          setActions={setActions}
+          sprite={sprite}
+          setSprite={setSprite}
+          sprite2={sprite2}
+          setSprite2={setSprite2}
+          displayAddIcon={displayAddIcon}
+          setDisplayAddIcon={setDisplayAddIcon}
+          theme={theme}
+          setTheme={setTheme}
+          backdropUrl={backdropUrl}
+          setBackdropUrl={setBackdropUrl}
+          currentVolume={currentVolume}
+          setCurrentVolume={setCurrentVolume}
+        />
+      </DragDropContext>
     </div>
   );
 }

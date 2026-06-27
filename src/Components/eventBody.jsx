@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { SingleAction } from './singleAction';
-import { Droppable } from 'react-beautiful-dnd';
+import { Droppable } from '@hello-pangea/dnd';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import AddBoxIcon from '@mui/icons-material/AddBox';
@@ -21,6 +21,12 @@ import { playSound, initAudio } from '../utils/sounds';
 import ActionHistoryFooter from './ActionHistoryFooter';
 import { FaChartBar } from 'react-icons/fa';
 import AnalyticsDashboard from './AnalyticsDashboard';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import TextField from '@mui/material/TextField';
+import Button from '@mui/material/Button';
 
 const ALIGNMENT_THRESHOLD = 5; // pixels within which to show alignment guides
 const STAGE_BOUNDARY_X = 290;
@@ -31,6 +37,11 @@ const WIGGLE_ANGLE = 15;
 const WIGGLE_SWING_ANGLE = -30;
 const WIGGLE_STEP_DELAY = 300;
 const WIGGLE_RETURN_DELAY = 600;
+const MAX_REPEATS = 4; // bound the "repeat" block so it can't loop forever
+
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+const createTransformState = () => ({ r: '0%', t: '0%', scale: 1, angle: 0 });
 
 export const EventBody = (props) => {
     const {
@@ -38,8 +49,20 @@ export const EventBody = (props) => {
         setMoves,
         actions,
         setActions,
-        setActions2, 
-        actions2
+        setActions2,
+        actions2,
+        sprite,
+        setSprite,
+        sprite2,
+        setSprite2,
+        displayAddIcon,
+        setDisplayAddIcon,
+        theme,
+        setTheme,
+        backdropUrl,
+        setBackdropUrl,
+        currentVolume,
+        setCurrentVolume
     } = props;
 
     const ref = useRef(null);
@@ -52,30 +75,28 @@ export const EventBody = (props) => {
     const [sprite1Visible, setSprite1Visible] = React.useState(true);
     const [sprite2Visible, setSprite2Visible] = React.useState(true);
 
-    /// r, t values corresspond to right , top values  
-    let r = '0%';
-    let t = '0%';
-    let scale = 1;
-    let angle = 0;
-    let r2 = '0%';
-    let t2 = '0%';
-    let scale2 = 1;
-    let angle2 = 0;
+    // Transform state is kept in refs so it survives the frequent re-renders
+    // that happen during an animation (previously these were plain `let`
+    // variables that reset to 0 on every render, corrupting the motion math).
+    const t1Ref = useRef(createTransformState());
+    const t2Ref = useRef(createTransformState());
+    const s1 = t1Ref.current;
+    const s2 = t2Ref.current;
 
     const [hello, setHello] = React.useState(false);
     const [hello2, setHello2] = React.useState(false);
     const [think, setThink] = React.useState(false);
     const [think2, setThink2] = React.useState(false);
-    const [theme, setTheme] = React.useState(false);
-    const [displayAddIcon, setDisplayAddIcon] = React.useState(true);
     const catImage = require('../Assets/images/cat.png');
     const jerryImage = require('../Assets/images/jerry1.png');
-    const [sprite, setSprite] = React.useState(catImage);
-    const [sprite2, setSprite2] = React.useState(null);
     const [activeSprite, setActiveSprite] = React.useState(1); // 1 for first sprite, 2 for second sprite
     const [currentAction, setCurrentAction] = React.useState('');
+    // Ref mirror of currentAction so delayed cleanup timers read the latest
+    // value instead of a stale closure captured when they were scheduled.
+    const currentActionRef = useRef('');
 
     const [isAnimating, setIsAnimating] = React.useState(false);
+    const isAnimatingRef = useRef(false);
     const timeoutRefs = React.useRef(new Set());
 
     const [spriteLibraryOpen, setSpriteLibraryOpen] = React.useState(false);
@@ -93,8 +114,6 @@ export const EventBody = (props) => {
         position: { x: 0, y: 0 }
     });
 
-    const [currentVolume, setCurrentVolume] = React.useState(1);
-
     const [actionQueue, setActionQueue] = React.useState([]);
     const [isReplaying, setIsReplaying] = React.useState(false);
     const isReplayingRef = useRef(false);
@@ -105,15 +124,41 @@ export const EventBody = (props) => {
     const [operatorResult, setOperatorResult] = React.useState(null);
     const scoreRef = useRef(score);
 
-    console.log("rendering...");
+    // Coordinate input dialog (accessible replacement for window.prompt)
+    const [coordDialogOpen, setCoordDialogOpen] = React.useState(false);
+    const [coordInput, setCoordInput] = React.useState({ x: '0', y: '0' });
+    const coordsRef = useRef({ x: 0, y: 0 });
+    const coordsProvidedRef = useRef(false);
+    const pendingPlayRef = useRef(false);
 
-    useEffect(() => {
-        scoreRef.current = score;
-    }, [score]);
+    // Bound for the repeat block
+    const repeatCountRef = useRef(0);
 
-    useEffect(() => {
-        isReplayingRef.current = isReplaying;
-    }, [isReplaying]);
+    // Refs mirroring volatile state used inside the collision interval, so the
+    // interval effect does not need to tear down/recreate on every change.
+    const actionsRef = useRef(actions);
+    const actions2Ref = useRef(actions2);
+    const hasSwappedRef = useRef(false);
+    const sprite1VisibleRef = useRef(true);
+    const sprite2VisibleRef = useRef(true);
+
+    useEffect(() => { scoreRef.current = score; }, [score]);
+    useEffect(() => { isReplayingRef.current = isReplaying; }, [isReplaying]);
+    useEffect(() => { actionsRef.current = actions; }, [actions]);
+    useEffect(() => { actions2Ref.current = actions2; }, [actions2]);
+    useEffect(() => { hasSwappedRef.current = hasSwappedAnimations; }, [hasSwappedAnimations]);
+    useEffect(() => { sprite1VisibleRef.current = sprite1Visible; }, [sprite1Visible]);
+    useEffect(() => { sprite2VisibleRef.current = sprite2Visible; }, [sprite2Visible]);
+
+    const setAnimating = useCallback((value) => {
+        isAnimatingRef.current = value;
+        setIsAnimating(value);
+    }, []);
+
+    const updateCurrentAction = useCallback((value) => {
+        currentActionRef.current = value;
+        setCurrentAction(value);
+    }, []);
 
     useEffect(() => {
         const container = movesContainerRef.current;
@@ -123,7 +168,6 @@ export const EventBody = (props) => {
             const categories = Array.from(container.getElementsByClassName('moves__category'));
             const containerHeight = container.clientHeight;
 
-            // Find which category is most visible
             let maxVisibleHeight = 0;
             let mostVisibleCategory = 'Motion';
 
@@ -160,329 +204,266 @@ export const EventBody = (props) => {
         return id;
     };
 
+    const applyTransform = (action1) => {
+        const node = action1 ? ref.current : ref2.current;
+        const s = action1 ? s1 : s2;
+        if (node) {
+            node.style.transform = `scale(${s.scale}) translate(${s.r}, ${s.t}) rotate(${s.angle}deg)`;
+        }
+    };
+
     function transform(temp, xAxis, action1) {
-        if (!isAnimating) return;
-
-        let value = temp.toString();
+        if (!isAnimatingRef.current) return;
+        const value = temp.toString();
+        const s = action1 ? s1 : s2;
         if (xAxis) {
-            if (action1) {
-                r = value.concat('%');
-            } else {
-                r2 = value.concat('%');
-            }
+            s.r = value.concat('%');
         } else {
-            if (action1) {
-                t = value.concat('%');
-            } else {
-                t2 = value.concat('%');
-            }
+            s.t = value.concat('%');
         }
-
-        const currentRef = action1 ? ref.current : ref2.current;
-        if (currentRef) {
-            const transform = action1 
-                ? `scale(${scale})translate(${r}, ${t}) rotate(${angle}deg)`
-                : `scale(${scale2})translate(${r2}, ${t2}) rotate(${angle2}deg)`;
-            currentRef.style.transform = transform;
-        }
+        applyTransform(action1);
     }
 
-    function moveUp (i, action1) {
-        //move up top - 50
+    function moveUp(i, action1) {
         pushActionToQueue(action1 ? 1 : 2, 'move', '-50 steps', 'Move up 50 steps');
         safeSetTimeout(() => {
-            let temp = parseInt(action1 ? t.slice(0,-1):t2.slice(0,-1));
-            temp = temp - 50;
-            if(temp<-140){
+            const s = action1 ? s1 : s2;
+            let temp = parseInt(s.t.slice(0, -1), 10) - 50;
+            if (temp < -140) {
                 refresh(WARN_MSG_POS);
-                return
+                return;
             }
             transform(temp, false, action1);
         }, i * 1500);
     }
-    function moveDown (i, action1) {  
-        //move down top + 50    
+    function moveDown(i, action1) {
         pushActionToQueue(action1 ? 1 : 2, 'move', '50 steps', 'Move down 50 steps');
         safeSetTimeout(() => {
-            let temp = parseInt(action1 ? t.slice(0,-1):t2.slice(0,-1));
-            temp = temp + 50;
-            if(temp>140){
+            const s = action1 ? s1 : s2;
+            let temp = parseInt(s.t.slice(0, -1), 10) + 50;
+            if (temp > 140) {
                 refresh(WARN_MSG_POS);
-                return
+                return;
             }
-           transform(temp, false, action1);
+            transform(temp, false, action1);
         }, i * 1500);
     }
-    function moveRight (i, action1) {
-        //move right right+50
+    function moveRight(i, action1) {
         pushActionToQueue(action1 ? 1 : 2, 'move', '50 steps', 'Move 50 steps');
         safeSetTimeout(() => {
-            let temp = parseInt(action1 ?r.slice(0,-1):r2.slice(0,-1));
-            temp = temp + 50;
-            if(temp>290){
+            const s = action1 ? s1 : s2;
+            let temp = parseInt(s.r.slice(0, -1), 10) + 50;
+            if (temp > 290) {
                 refresh(WARN_MSG_POS);
-                return
+                return;
             }
             transform(temp, true, action1);
         }, i * 1500);
     }
     function moveLeft(i, action1) {
-        //move right right-50 
         pushActionToQueue(action1 ? 1 : 2, 'move', '-50 steps', 'Move -50 steps');
         safeSetTimeout(() => {
-            let temp = parseInt(action1 ? r.slice(0,-1):r2.slice(0,-1));
-            temp = temp - 50;
-            if(temp<-290){
+            const s = action1 ? s1 : s2;
+            let temp = parseInt(s.r.slice(0, -1), 10) - 50;
+            if (temp < -290) {
                 refresh(WARN_MSG_POS);
-                return
+                return;
             }
             transform(temp, true, action1);
         }, i * 1500);
     }
-    function sayHello(i, action1){
-        setCurrentAction('Say Hello for 5 sec');
+    function sayHello(i, action1) {
         pushActionToQueue(action1 ? 1 : 2, 'say', 'Hello', 'Say Hello for 5 sec');
         safeSetTimeout(() => {
+            updateCurrentAction('Say Hello for 5 sec');
             action1 ? setHello(true) : setHello2(true);
         }, i * 1500);
-        //close hello after 5 sec
         safeSetTimeout(() => {
-            if (currentAction === 'Say Hello for 5 sec') {
-                action1? setHello(false):setHello2(false);
-                setCurrentAction('');
+            if (currentActionRef.current === 'Say Hello for 5 sec') {
+                action1 ? setHello(false) : setHello2(false);
+                updateCurrentAction('');
             }
         }, (i * 1500) + 5000);
     }
 
-    function thinkHmmm(i, action1){
+    function thinkHmmm(i, action1) {
         pushActionToQueue(action1 ? 1 : 2, 'think', 'Hmmm', 'Think Hmmm for 3 sec');
         safeSetTimeout(() => {
-            setCurrentAction('Think Hmmm for 3 sec');
+            updateCurrentAction('Think Hmmm for 3 sec');
             action1 ? setThink(true) : setThink2(true);
         }, i * 1500);
-        //close think after 3 sec
         safeSetTimeout(() => {
-            if (currentAction === 'Think Hmmm for 3 sec') {
-                action1? setThink(false):setThink2(false);
-                setCurrentAction('');
+            if (currentActionRef.current === 'Think Hmmm for 3 sec') {
+                action1 ? setThink(false) : setThink2(false);
+                updateCurrentAction('');
             }
         }, (i * 1500) + 3000);
     }
 
-    function sayBye(i, action1){
+    function sayBye(i, action1) {
         pushActionToQueue(action1 ? 1 : 2, 'say', 'Bye', 'Say Bye');
-        safeSetTimeout(()=>{
-            setCurrentAction('Say Bye');
-            // Clear any existing messages first
+        safeSetTimeout(() => {
+            updateCurrentAction('Say Bye');
             setHello(false);
             setHello2(false);
-            // Show message based on collision state
-            if (hasSwappedAnimations) {
-                // After collision, messages are swapped
+            if (hasSwappedRef.current) {
                 action1 ? setHello2(true) : setHello(true);
             } else {
-                // Before collision, normal behavior
-            action1 ? setHello(true) : setHello2(true);
+                action1 ? setHello(true) : setHello2(true);
             }
-        }, (i* 1500));
-        // Clear message after display
-        safeSetTimeout(()=>{
-            if (currentAction === 'Say Bye') {
+        }, (i * 1500));
+        safeSetTimeout(() => {
+            if (currentActionRef.current === 'Say Bye') {
                 setHello(false);
                 setHello2(false);
-                setCurrentAction('');
+                updateCurrentAction('');
             }
-        }, (i*1500) + 100); // Small delay to ensure message shows
+        }, (i * 1500) + 2000);
     }
 
-    function sayHii(i, action1){
+    function sayHii(i, action1) {
         pushActionToQueue(action1 ? 1 : 2, 'say', 'Hii', 'Say Hii');
-        safeSetTimeout(()=>{
-            setCurrentAction('Say Hii');
-            // Clear any existing messages first
+        safeSetTimeout(() => {
+            updateCurrentAction('Say Hii');
             setHello(false);
             setHello2(false);
-            // Show message based on collision state
-            if (hasSwappedAnimations) {
-                // After collision, messages are swapped
+            if (hasSwappedRef.current) {
                 action1 ? setHello2(true) : setHello(true);
             } else {
-                // Before collision, normal behavior
-            action1 ? setHello(true) : setHello2(true);
+                action1 ? setHello(true) : setHello2(true);
             }
-        }, (i* 1500));
-        // Clear message after display
-        safeSetTimeout(()=>{
-            if (currentAction === 'Say Hii') {
+        }, (i * 1500));
+        safeSetTimeout(() => {
+            if (currentActionRef.current === 'Say Hii') {
                 setHello(false);
                 setHello2(false);
-                setCurrentAction('');
+                updateCurrentAction('');
             }
-        }, (i*1500) + 100); // Small delay to ensure message shows
+        }, (i * 1500) + 2000);
     }
 
-    function thinkSeeYou(i, action1){
+    function thinkSeeYou(i, action1) {
         pushActionToQueue(action1 ? 1 : 2, 'think', 'See you', 'Think See you');
-        safeSetTimeout(()=>{
-            setCurrentAction('Think See you');
-            // Clear any existing messages first
+        safeSetTimeout(() => {
+            updateCurrentAction('Think See you');
             setThink(false);
             setThink2(false);
-            // Show message based on collision state
-            if (hasSwappedAnimations) {
-                // After collision, messages are swapped
+            if (hasSwappedRef.current) {
                 action1 ? setThink2(true) : setThink(true);
             } else {
-                // Before collision, normal behavior
-            action1 ? setThink(true) : setThink2(true);
+                action1 ? setThink(true) : setThink2(true);
             }
-        }, (i* 1500));
-        // Clear message after display
-        safeSetTimeout(()=>{
-            if (currentAction === 'Think See you') {
+        }, (i * 1500));
+        safeSetTimeout(() => {
+            if (currentActionRef.current === 'Think See you') {
                 setThink(false);
                 setThink2(false);
-                setCurrentAction('');
+                updateCurrentAction('');
             }
-        }, (i*1500) + 100); // Small delay to ensure message shows
+        }, (i * 1500) + 2000);
     }
 
     function moveXY(xInput, yInput, random, i, action1) {
-        // combined function to move to random postion and to x, y cordinates  
         const actionName = random ? 'Go to random position' : 'Go to coordinates';
         pushActionToQueue(action1 ? 1 : 2, 'move', `(${xInput}, ${yInput})`, actionName);
-        safeSetTimeout(()=>{
-            let tempR = parseInt(action1 ? r.slice(0,-1) : r2.slice(0,-1));
-            let tempT = parseInt(action1 ? t.slice(0,-1) : t2.slice(0,-1));
-            // asign the x, y values 
-            // or to random values 
-            tempR = tempR !== parseInt(xInput) && parseInt(xInput) !== 0 
-                ? (random ? Math.floor((Math.random() * (-290-290)) +290) : parseInt(xInput)) 
+        safeSetTimeout(() => {
+            const s = action1 ? s1 : s2;
+            let tempR = parseInt(s.r.slice(0, -1), 10);
+            let tempT = parseInt(s.t.slice(0, -1), 10);
+            tempR = tempR !== parseInt(xInput, 10) && parseInt(xInput, 10) !== 0
+                ? (random ? Math.floor((Math.random() * (-290 - 290)) + 290) : parseInt(xInput, 10))
                 : tempR;
-            tempT = tempT !== (-parseInt(yInput)) && parseInt(yInput) !== 0 
-                ? (random ? Math.floor((Math.random() * (-140-140)) + 140) : -parseInt(yInput)) 
+            tempT = tempT !== (-parseInt(yInput, 10)) && parseInt(yInput, 10) !== 0
+                ? (random ? Math.floor((Math.random() * (-140 - 140)) + 140) : -parseInt(yInput, 10))
                 : tempT;
-            if(parseInt(yInput)===0){
+            if (parseInt(yInput, 10) === 0) {
                 tempT = 0;
             }
-            if (parseInt(xInput)===0){
+            if (parseInt(xInput, 10) === 0) {
                 tempR = 0;
             }
-            //return to intial if it is out of bounds 
-            if(tempR<-290 || tempR>290 || tempT<-140 || tempT>140){
+            if (tempR < -290 || tempR > 290 || tempT < -140 || tempT > 140) {
                 refresh(WARN_MSG_POS);
-                return
+                return;
             }
-            let valueR = tempR.toString();
-            let valueT = tempT.toString();
-            if(action1){
-                r = valueR.concat('%');
-                t = valueT.concat('%');
-            } else {
-                r2 = valueR.concat('%');
-                t2 = valueT.concat('%');
-            }
-            // apply tarnsform for respective sprite
-            action1 ? ref.current.style.transform = `scale(${scale})translate(${r}, ${t}) rotate(${angle}deg)`
-                : ref2.current.style.transform = `scale(${scale2})translate(${r2}, ${t2}) rotate(${angle2}deg)`;
+            s.r = tempR.toString().concat('%');
+            s.t = tempT.toString().concat('%');
+            applyTransform(action1);
         }, (i * 1500));
     }
-    const rotate = (rAngle,i, action1) =>{
+    const rotate = (rAngle, i, action1) => {
         pushActionToQueue(action1 ? 1 : 2, 'turn', `${rAngle} degrees`, `turn ${rAngle} degrees`);
         safeSetTimeout(() => {
-            //rotate the sprite 
-            action1 ? angle += rAngle : angle2+=rAngle;
-            // apply tarnsform for respective sprite
-            action1 ? ref.current.style.transform = `scale(${scale})translate(${r}, ${t}) rotate(${angle}deg)`
-                : ref2.current.style.transform = `scale(${scale2})translate(${r2}, ${t2}) rotate(${angle2}deg)`;
+            const s = action1 ? s1 : s2;
+            s.angle += rAngle;
+            applyTransform(action1);
         }, (i * 1500));
     }
-    function handleScale(size, increase, idx, action1){
-        //combined function to scale from resize component and resize action item 
-        // If size is provided, we're using the Resize component
-        if(size) {
+    function handleScale(size, increase, idx, action1) {
+        // If size is provided, we're using the Resize/library control
+        if (size) {
             const isFirstSprite = activeSprite === 1;
-            let newScale = size === 'medium' ? 2 : (size === 'large' ? 3 : 1);
+            const newScale = size === 'medium' ? 2 : (size === 'large' ? 3 : 1);
             const sizeLabel = size === 'medium' ? 'Set size medium' : (size === 'large' ? 'Set size large' : 'Set size small');
             pushActionToQueue(isFirstSprite ? 1 : 2, 'scale', size, sizeLabel);
-            if(isFirstSprite) {
-                scale = newScale;
-                ref.current.style.transform = `scale(${newScale}) translate(${r}, ${t}) rotate(${angle}deg)`;
-            } else if(sprite2) {
-                scale2 = newScale;
-                ref2.current.style.transform = `scale(${newScale}) translate(${r2}, ${t2}) rotate(${angle2}deg)`;
+            if (isFirstSprite) {
+                s1.scale = newScale;
+                applyTransform(true);
+            } else if (sprite2) {
+                s2.scale = newScale;
+                applyTransform(false);
             }
             return;
         }
-        
-        // If no size provided, we're using the action items (increase/decrease)
-        if(increase) {
+
+        // Otherwise we're using the increase/decrease action items
+        if (increase) {
             pushActionToQueue(action1 ? 1 : 2, 'scale', 'increase', 'size increase');
             safeSetTimeout(() => {
-                action1 ? scale += 0.2 : scale2 += 0.2;
-                if(action1){
-                    if (scale<3){
-                        ref.current.style.transform = `scale(${scale})translate(${r}, ${t}) rotate(${angle}deg)`;
-                    }else{
-                        refresh(WARN_MSG_SIZE);}
-                } else{
-                    if (scale2<3){
-                        ref2.current.style.transform = `scale(${scale2})translate(${r2}, ${t2}) rotate(${angle2}deg)`;
-                    }else{
-                        refresh(WARN_MSG_SIZE);}
+                const s = action1 ? s1 : s2;
+                s.scale += 0.2;
+                if (s.scale < 3) {
+                    applyTransform(action1);
+                } else {
+                    refresh(WARN_MSG_SIZE);
                 }
-            }, idx*1500);
-            return;
-        } else {
-            pushActionToQueue(action1 ? 1 : 2, 'scale', 'decrease', 'size decrease');
-            safeSetTimeout(() => {
-                action1 ? scale -= 0.2 : scale2 -= 0.2;
-                if(action1){
-                    if (scale>0.5){
-                        ref.current.style.transform = `scale(${scale})translate(${r}, ${t}) rotate(${angle}deg)`;
-                    }else{
-                        refresh(WARN_MSG_SIZE);}
-                } else{
-                    if (scale2>0.5){
-                        ref2.current.style.transform = `scale(${scale2})translate(${r2}, ${t2}) rotate(${angle2}deg)`;
-                    }else{
-                        refresh(WARN_MSG_SIZE);}
-                }
-            }, idx*1500);
+            }, idx * 1500);
             return;
         }
+        pushActionToQueue(action1 ? 1 : 2, 'scale', 'decrease', 'size decrease');
+        safeSetTimeout(() => {
+            const s = action1 ? s1 : s2;
+            s.scale -= 0.2;
+            if (s.scale > 0.5) {
+                applyTransform(action1);
+            } else {
+                refresh(WARN_MSG_SIZE);
+            }
+        }, idx * 1500);
     }
 
     function showSprite(i, action1) {
-        if (!isAnimating) return;
+        if (!isAnimatingRef.current) return;
         safeSetTimeout(() => {
             if (action1) {
                 setSprite1Visible(true);
-                if (ref.current) {
-                    ref.current.style.visibility = 'visible';
-                }
+                if (ref.current) ref.current.style.visibility = 'visible';
             } else {
                 setSprite2Visible(true);
-                if (ref2.current) {
-                    ref2.current.style.visibility = 'visible';
-                }
+                if (ref2.current) ref2.current.style.visibility = 'visible';
             }
         }, i * 1500);
     }
 
     function hideSprite(i, action1) {
-        if (!isAnimating) return;
+        if (!isAnimatingRef.current) return;
         safeSetTimeout(() => {
             if (action1) {
                 setSprite1Visible(false);
-                if (ref.current) {
-                    ref.current.style.visibility = 'hidden';
-                }
+                if (ref.current) ref.current.style.visibility = 'hidden';
             } else {
                 setSprite2Visible(false);
-                if (ref2.current) {
-                    ref2.current.style.visibility = 'hidden';
-                }
+                if (ref2.current) ref2.current.style.visibility = 'hidden';
             }
         }, i * 1500);
     }
@@ -552,10 +533,10 @@ export const EventBody = (props) => {
     };
 
     const startActions = (action, idx, action1) => {
-        if (!isAnimating) return;
+        if (!isAnimatingRef.current) return;
         const delay = idx * 1500;
 
-        switch(action) {
+        switch (action) {
             case 'Move 50 steps': {
                 safeSetTimeout(() => moveRight(idx, action1), delay);
                 break;
@@ -593,11 +574,8 @@ export const EventBody = (props) => {
                 break;
             }
             case 'Go to coordinates': {
-                const xInput = prompt('Enter X coordinate (-290 to 290):', '0');
-                const yInput = prompt('Enter Y coordinate (-140 to 140):', '0');
-                if (xInput !== null && yInput !== null) {
-                    safeSetTimeout(() => moveXY(xInput, yInput, false, idx, action1), delay);
-                }
+                const { x, y } = coordsRef.current;
+                safeSetTimeout(() => moveXY(x, y, false, idx, action1), delay);
                 break;
             }
             case 'Set size small': {
@@ -634,43 +612,20 @@ export const EventBody = (props) => {
             }
             case 'repeat': {
                 const maxDelay = Math.max(
-                    actions?.length || 0,
-                    actions2?.length || 0
+                    actionsRef.current?.length || 0,
+                    actions2Ref.current?.length || 0
                 ) * 1500;
 
                 safeSetTimeout(() => {
-                    // If this is the first sprite's repeat
-                    if(action1) {
-                        // Check if second sprite also has repeat
-                        const sprite2HasRepeat = actions2?.some(item => item.todo === 'repeat');
-                        if(sprite2HasRepeat) {
-                            // Both sprites have repeat, restart both after all current animations finish
-                            safeSetTimeout(() => {
-                                clearAllTimeouts();
-                                setIsAnimating(true);
-                                runAction1();
-                                runAction2();
-                            }, maxDelay);
-                        } else {
-                            // Only first sprite has repeat
-                            runAction1();
-                        }
-                    } else {
-                        // If this is the second sprite's repeat
-                        const sprite1HasRepeat = actions?.some(item => item.todo === 'repeat');
-                        if(sprite1HasRepeat) {
-                            // Both sprites have repeat, restart both after all current animations finish
-                            safeSetTimeout(() => {
-                                clearAllTimeouts();
-                                setIsAnimating(true);
-                                runAction1();
-                                runAction2();
-                            }, maxDelay);
-                        } else {
-                            // Only second sprite has repeat
-                            runAction2();
-                        }
-                    }
+                    if (!isAnimatingRef.current) return;
+                    if (repeatCountRef.current >= MAX_REPEATS) return;
+                    repeatCountRef.current += 1;
+                    // Re-run both sprite scripts after the current pass finishes.
+                    safeSetTimeout(() => {
+                        if (!isAnimatingRef.current) return;
+                        runAction1();
+                        runAction2();
+                    }, maxDelay);
                 }, delay);
                 break;
             }
@@ -710,7 +665,6 @@ export const EventBody = (props) => {
                 safeSetTimeout(() => {
                     const newVolume = Math.min(currentVolume + 0.2, 1);
                     setCurrentVolume(newVolume);
-                    // Play a test sound to demonstrate volume change
                     playSound('pop', newVolume);
                 }, delay);
                 break;
@@ -719,7 +673,6 @@ export const EventBody = (props) => {
                 safeSetTimeout(() => {
                     const newVolume = Math.max(currentVolume - 0.2, 0);
                     setCurrentVolume(newVolume);
-                    // Play a test sound to demonstrate volume change
                     playSound('pop', newVolume);
                 }, delay);
                 break;
@@ -734,8 +687,9 @@ export const EventBody = (props) => {
             }
             case 'Touching edge?': {
                 safeSetTimeout(() => {
-                    const currentX = parseInt(action1 ? r : r2, 10);
-                    const currentY = parseInt(action1 ? t : t2, 10);
+                    const s = action1 ? s1 : s2;
+                    const currentX = parseInt(s.r, 10);
+                    const currentY = parseInt(s.t, 10);
                     const touchingEdge = Math.abs(currentX) >= STAGE_BOUNDARY_X
                         || Math.abs(currentY) >= STAGE_BOUNDARY_Y;
                     handleSensingResult('Touching edge', touchingEdge, action1, 'Touching edge?');
@@ -805,7 +759,6 @@ export const EventBody = (props) => {
             position: { x, y }
         });
 
-        // Reset effects after animations complete
         setTimeout(() => {
             setCollisionEffects({
                 ripple: false,
@@ -816,30 +769,75 @@ export const EventBody = (props) => {
         }, 1000);
     };
 
-    // Enhanced collision detection
-    const handleCollision = (draggedRect, otherRect) => {
+    // Shared swap routine used by both manual-drag collisions and the polling
+    // interval. Reads volatile state from refs so it has no stale closures.
+    const performSwap = () => {
+        if (hasSwappedRef.current) return;
+        const a1 = actionsRef.current || [];
+        const a2 = actions2Ref.current || [];
+        if (!(a1.length > 0 && a2.length > 0)) return;
+
+        clearAllTimeouts();
+        setAnimating(false);
+
+        setHello(false);
+        setHello2(false);
+        setThink(false);
+        setThink2(false);
+        updateCurrentAction('');
+
+        const tempActions = [...a1];
+        const tempActions2 = [...a2];
+        const v1 = sprite1VisibleRef.current;
+        const v2 = sprite2VisibleRef.current;
+
+        setActions(tempActions2);
+        setActions2(tempActions);
+        setSprite1Visible(v2);
+        setSprite2Visible(v1);
+
+        setHasSwappedAnimations(true);
+        hasSwappedRef.current = true;
+
+        toast.info("Sprites collided! Animations swapped!", {
+            position: "top-center",
+            autoClose: 1000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+        });
+
+        safeSetTimeout(() => {
+            setAnimating(true);
+            tempActions2.forEach((item, i) => startActionsCallback(item.todo, i, true));
+            tempActions.forEach((item, i) => startActionsCallback(item.todo, i, false));
+        }, 500);
+    };
+
+    actionHandlersRef.current.performSwap = performSwap;
+
+    // Enhanced collision detection (manual dragging)
+    const handleCollision = (draggedRect) => {
         const collision = checkCollisionCallback();
         if (collision && !isColliding) {
             setIsColliding(true);
-            if (!hasSwappedAnimations) {
-                // Calculate collision point
+            if (!hasSwappedRef.current) {
                 const x = (draggedRect.left + draggedRect.right) / 2;
                 const y = (draggedRect.top + draggedRect.bottom) / 2;
                 createCollisionEffects(x, y);
-                
-                // Add haptic feedback if available
+
                 if (window.navigator.vibrate) {
                     window.navigator.vibrate(100);
                 }
 
-                swapAnimations();
+                performSwap();
             }
         } else if (!collision && isColliding) {
             setIsColliding(false);
         }
     };
 
-    // Update handleDrag to use enhanced collision
     const handleDrag = (e, data, isFirstSprite) => {
         const draggedRef = isFirstSprite ? ref.current : ref2.current;
         const otherRef = isFirstSprite ? ref2.current : ref.current;
@@ -847,10 +845,9 @@ export const EventBody = (props) => {
         if (draggedRef && otherRef && !displayAddIcon) {
             const draggedRect = draggedRef.getBoundingClientRect();
             const otherRect = otherRef.getBoundingClientRect();
-            
-            handleCollision(draggedRect, otherRect);
-            
-            // Show alignment guides
+
+            handleCollision(draggedRect);
+
             const guides = checkAlignment(draggedRect, otherRect);
             setAlignmentGuides(guides);
         }
@@ -859,29 +856,25 @@ export const EventBody = (props) => {
     // Function to check collision between two sprites
     const checkCollision = () => {
         if (!ref.current || !ref2.current || !sprite2) return false;
-        
+
         const rect1 = ref.current.getBoundingClientRect();
         const rect2 = ref2.current.getBoundingClientRect();
-        
-        // Calculate the actual sprite dimensions (accounting for scale)
-        const sprite1Width = rect1.width * 0.7;  // Increased collision area
+
+        const sprite1Width = rect1.width * 0.7;
         const sprite1Height = rect1.height * 0.7;
         const sprite2Width = rect2.width * 0.7;
         const sprite2Height = rect2.height * 0.7;
 
-        // Calculate centers of both sprites
         const center1X = rect1.left + rect1.width / 2;
         const center1Y = rect1.top + rect1.height / 2;
         const center2X = rect2.left + rect2.width / 2;
         const center2Y = rect2.top + rect2.height / 2;
 
-        // Calculate the distance between centers
         const distanceX = Math.abs(center1X - center2X);
         const distanceY = Math.abs(center1Y - center2Y);
 
-        // Check if the sprites are actually overlapping with a slightly larger detection area
-        return (distanceX < (sprite1Width + sprite2Width) / 2.2) && 
-               (distanceY < (sprite1Height + sprite2Height) / 2.2);
+        return (distanceX < (sprite1Width + sprite2Width) / 2.2) &&
+            (distanceY < (sprite1Height + sprite2Height) / 2.2);
     };
 
     actionHandlersRef.current.checkCollision = checkCollision;
@@ -894,145 +887,95 @@ export const EventBody = (props) => {
         return false;
     }, []);
 
-    // Function to swap animations between sprites
-    const swapAnimations = () => {
-        if (!hasSwappedAnimations && actions?.length > 0 && actions2?.length > 0) {
-            clearAllTimeouts();
-            setIsAnimating(false);  // Stop current animations
-            
-            // Clear all messages immediately
-            setHello(false);
-            setHello2(false);
-            setThink(false);
-            setThink2(false);
-            setCurrentAction('');
-            
-            // Store current positions and states
-            const tempActions = [...actions];
-            const tempActions2 = [...actions2];
-            
-            // Store current visibility states
-            const tempSprite1Visible = sprite1Visible;
-            const tempSprite2Visible = sprite2Visible;
-            
-            // Swap actions and visibility states
-            setActions(tempActions2);
-            setActions2(tempActions);
-            setSprite1Visible(tempSprite2Visible);
-            setSprite2Visible(tempSprite1Visible);
-            
-            setHasSwappedAnimations(true);
-            
-            // Show collision notification
-            toast.info("Sprites collided! Animations swapped!", {
-                position: "top-center",
-                autoClose: 1000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-            });
+    const startPlay = () => {
+        initAudio();
 
-            // Restart animations with swapped behaviors after a short delay
-            safeSetTimeout(() => {
-                setIsAnimating(true);
-                
-                // Start both animations simultaneously with swapped actions
-                if (tempActions2.length) {
-                    tempActions2.forEach((item, i) => {
-                                        startActionsCallback(item.todo, i, true);
-                    });
-                }
-                
-                if (tempActions.length) {
-                    tempActions.forEach((item, i) => {
-                                        startActionsCallback(item.todo, i, false);
-                    });
-                }
-            }, 500);
+        clearAllTimeouts();
+        setAnimating(false);
+        setIsColliding(false);
+        setHasSwappedAnimations(false);
+        hasSwappedRef.current = false;
+        repeatCountRef.current = 0;
+        setHello(false);
+        setHello2(false);
+        setThink(false);
+        setThink2(false);
+        updateCurrentAction('');
+
+        // Reset transforms
+        t1Ref.current = createTransformState();
+        t2Ref.current = createTransformState();
+        if (ref.current) {
+            ref.current.style.transform = `scale(1) translate(0%, 0%) rotate(0deg)`;
+        }
+        if (ref2.current) {
+            ref2.current.style.transform = `scale(1) translate(0%, 0%) rotate(0deg)`;
+        }
+
+        setAnimating(true);
+
+        if (actions?.length) {
+            actions.forEach((item, i) => startActionsCallback(item.todo, i, true));
+        }
+        if (!displayAddIcon && actions2?.length) {
+            actions2.forEach((item, i) => startActionsCallback(item.todo, i, false));
         }
     };
 
     const handlePlay = () => {
-        // Initialize audio context
-        initAudio();
-        
-        // Clear any existing animations and states
-        clearAllTimeouts();
-        setIsAnimating(false);
-        setIsColliding(false);
-        setHasSwappedAnimations(false);
-        setHello(false);
-        setHello2(false);
-        setThink(false);
-        setThink2(false);
-        setCurrentAction('');
-        
-        // Reset positions
-        r = '0%';
-        t = '0%';
-        r2 = '0%';
-        t2 = '0%';
-        scale = 1;
-        angle = 0;
-        scale2 = 1;
-        angle2 = 0;
+        const needsCoords = (actions?.some(a => a.todo === 'Go to coordinates'))
+            || (!displayAddIcon && actions2?.some(a => a.todo === 'Go to coordinates'));
+        if (needsCoords && !coordsProvidedRef.current) {
+            pendingPlayRef.current = true;
+            setCoordDialogOpen(true);
+            return;
+        }
+        startPlay();
+    };
 
-        // Apply initial transforms
-        if (ref.current) {
-            ref.current.style.transform = `scale(${scale}) translate(${r}, ${t}) rotate(${angle}deg)`;
+    const handleCoordSubmit = () => {
+        const x = clamp(parseInt(coordInput.x, 10) || 0, -290, 290);
+        const y = clamp(parseInt(coordInput.y, 10) || 0, -140, 140);
+        coordsRef.current = { x, y };
+        coordsProvidedRef.current = true;
+        setCoordDialogOpen(false);
+        if (pendingPlayRef.current) {
+            pendingPlayRef.current = false;
+            startPlay();
         }
-        if (ref2.current) {
-            ref2.current.style.transform = `scale(${scale2}) translate(${r2}, ${t2}) rotate(${angle2}deg)`;
-        }
+    };
 
-        // Start animations immediately
-        setIsAnimating(true);
-        
-        // Start both sprites' animations simultaneously
-            if (actions?.length) {
-            actions.forEach((item, i) => {
-                startActionsCallback(item.todo, i, true);
-            });
-            }
-            
-            if (!displayAddIcon && actions2?.length) {
-            actions2.forEach((item, i) => {
-                startActionsCallback(item.todo, i, false);
-            });
-        }
+    const handleCoordCancel = () => {
+        pendingPlayRef.current = false;
+        setCoordDialogOpen(false);
     };
 
     const refresh = (msg) => {
         clearAllTimeouts();
-        setIsAnimating(false);
+        setAnimating(false);
         setIsColliding(false);
         setHasSwappedAnimations(false);
-        setCurrentAction('');
+        hasSwappedRef.current = false;
+        repeatCountRef.current = 0;
+        coordsProvidedRef.current = false;
+        updateCurrentAction('');
         setHello(false);
         setHello2(false);
         setThink(false);
         setThink2(false);
-        // Reset visibility states
         setSprite1Visible(true);
         setSprite2Visible(true);
-        
-        // Reset positions
-        r = '0%';
-        t = '0%';
-        r2 = '0%';
-        t2 = '0%';
-        scale = 1;
-        angle = 0;
-        scale2 = 1;
-        angle2 = 0;
 
-        // Apply transforms
+        // Reset transforms
+        t1Ref.current = createTransformState();
+        t2Ref.current = createTransformState();
         if (ref.current) {
-            ref.current.style.transform = `scale(${scale}) translate(${r}, ${t}) rotate(${angle}deg)`;
+            ref.current.style.transform = `scale(1) translate(0%, 0%) rotate(0deg)`;
+            ref.current.style.visibility = 'visible';
         }
         if (ref2.current) {
-            ref2.current.style.transform = `scale(${scale2}) translate(${r2}, ${t2}) rotate(${angle2}deg)`;
+            ref2.current.style.transform = `scale(1) translate(0%, 0%) rotate(0deg)`;
+            ref2.current.style.visibility = 'visible';
         }
 
         if (msg) {
@@ -1046,24 +989,23 @@ export const EventBody = (props) => {
         }
     };
 
-    //function to start the actions
-    //send true as a parameter if the actions are for the first sprite else false 
-    function runAction1(){
-        if (actions?.length) {
-            actions.forEach((item, i) => {
+    // Functions to start the actions for each sprite
+    function runAction1() {
+        if (actionsRef.current?.length) {
+            actionsRef.current.forEach((item, i) => {
                 startActionsCallback(item.todo, i, true);
             });
         }
     }
-    
-    function runAction2(){
-        if (!displayAddIcon && actions2?.length) {
-            actions2.forEach((item, i) => {
+
+    function runAction2() {
+        if (!displayAddIcon && actions2Ref.current?.length) {
+            actions2Ref.current.forEach((item, i) => {
                 startActionsCallback(item.todo, i, false);
             });
         }
     }
-    
+
     const handleCategoryClick = (category) => {
         setActiveCategory(category);
         const categoryElement = movesContainerRef.current?.querySelector(`[data-category="${category}"]`);
@@ -1072,8 +1014,8 @@ export const EventBody = (props) => {
         }
     };
 
-    const renderCategory = (categoryName, color, moves) => {
-        const categoryMoves = moves?.filter(move => move.category === categoryName);
+    const renderCategory = (categoryName, color, moveList) => {
+        const categoryMoves = moveList?.filter(move => move.category === categoryName);
         if (!categoryMoves || categoryMoves.length === 0) return null;
 
         return (
@@ -1084,8 +1026,8 @@ export const EventBody = (props) => {
                 {categoryMoves.map((move) => (
                     <SingleAction
                         disableDelete={true}
-                        index={moves.findIndex(m => m.id === move.id)}
-                        moves={moves}
+                        index={moveList.findIndex(m => m.id === move.id)}
+                        moves={moveList}
                         move={move}
                         key={move.id}
                         setMoves={setMoves}
@@ -1095,120 +1037,31 @@ export const EventBody = (props) => {
         );
     };
 
-    // Update collision effect to preserve visibility states
+    // Poll for collisions while animating. Volatile values are read from refs,
+    // so this effect only re-subscribes when the sprite count actually changes.
     useEffect(() => {
-        let collisionInterval;
+        if (displayAddIcon || !sprite2) return undefined;
+
         let lastCollisionState = false;
-        
-        if (isAnimating && !displayAddIcon && ref.current && ref2.current && sprite2) {
-            collisionInterval = setInterval(() => {
-                if (!isAnimating) return;
-                
-                    const collision = checkCollisionCallback();
-                if (collision !== lastCollisionState) {
-                    lastCollisionState = collision;
-                    if (collision) {
-                        setIsColliding(true);
-                        // Store current visibility states before swap
-                        const tempSprite1Visible = sprite1Visible;
-                        const tempSprite2Visible = sprite2Visible;
-                        
-                        // Swap animations
-                        if (!hasSwappedAnimations && actions?.length > 0 && actions2?.length > 0) {
-                            clearAllTimeouts();
-                            setIsAnimating(false);
-                            
-                            // Clear any existing messages
-                        setHello(false);
-                        setHello2(false);
-                        setThink(false);
-                        setThink2(false);
-                        setCurrentAction('');
-                            
-                            // Store current actions
-                            const tempActions = [...actions];
-                            const tempActions2 = [...actions2];
-                            
-                            // Swap actions and visibility states
-                            setActions(tempActions2);
-                            setActions2(tempActions);
-                            setSprite1Visible(tempSprite2Visible);
-                            setSprite2Visible(tempSprite1Visible);
-                            
-                            setHasSwappedAnimations(true);
-                            
-                            toast.info("Sprites collided! Animations swapped!", {
-                                position: "top-center",
-                                autoClose: 1000,
-                                hideProgressBar: false,
-                                closeOnClick: true,
-                                pauseOnHover: true,
-                                draggable: true,
-                            });
+        const collisionInterval = setInterval(() => {
+            if (!isAnimatingRef.current) return;
+            if (!ref.current || !ref2.current) return;
 
-                            // Restart animations with swapped behaviors
-                            safeSetTimeout(() => {
-                                setIsAnimating(true);
-                                if (tempActions2.length) {
-                                    tempActions2.forEach((item, i) => {
-                                        startActionsCallback(item.todo, i, true);
-                                    });
-                                }
-                                if (tempActions.length) {
-                                    tempActions.forEach((item, i) => {
-                                        startActionsCallback(item.todo, i, false);
-                                    });
-                                }
-                            }, 500);
-                        }
-                    } else {
-                        setIsColliding(false);
-                        setHasSwappedAnimations(false);
-                    }
+            const collision = checkCollisionCallback();
+            if (collision !== lastCollisionState) {
+                lastCollisionState = collision;
+                if (collision) {
+                    setIsColliding(true);
+                    const swap = actionHandlersRef.current.performSwap;
+                    if (swap) swap();
+                } else {
+                    setIsColliding(false);
                 }
-            }, 30);
-        }
+            }
+        }, 100);
 
-        return () => {
-            if (collisionInterval) {
-                clearInterval(collisionInterval);
-            }
-        };
-    }, [
-        actions,
-        actions2,
-        checkCollisionCallback,
-        displayAddIcon,
-        hasSwappedAnimations,
-        isAnimating,
-        setActions,
-        setActions2,
-        sprite1Visible,
-        sprite2Visible,
-        sprite2,
-        startActionsCallback
-    ]);
-
-    // Add CSS for better collision visualization
-    useEffect(() => {
-        const style = document.createElement('style');
-        style.textContent = `
-            .sprite-colliding {
-                animation: collision-pulse 0.4s infinite;
-                filter: brightness(1.3) contrast(1.2);
-                box-shadow: 0 0 10px rgba(255,255,0,0.5);
-            }
-            @keyframes collision-pulse {
-                0% { transform: scale(1); }
-                50% { transform: scale(1.1); }
-                100% { transform: scale(1); }
-            }
-        `;
-        document.head.appendChild(style);
-        return () => {
-            document.head.removeChild(style);
-        };
-    }, []);
+        return () => clearInterval(collisionInterval);
+    }, [displayAddIcon, sprite2, checkCollisionCallback]);
 
     const handleSpriteSelect = (url) => {
         if (activeSprite === 1) {
@@ -1230,7 +1083,7 @@ export const EventBody = (props) => {
 
     const handleSpriteDelete = () => {
         if (activeSprite === 1) {
-            setSprite(require('../Assets/images/cat.png'));
+            setSprite(catImage);
         } else {
             setSprite2(null);
             setDisplayAddIcon(true);
@@ -1240,42 +1093,19 @@ export const EventBody = (props) => {
 
     const handleBackdropSelect = (url) => {
         setTheme(true);
-        // Preload the image before setting it as background
-        const img = new Image();
-        img.onload = () => {
-            const playArea = document.querySelector('.moves.play');
-            if (playArea) {
-                playArea.style.backgroundImage = `url(${url})`;
-                playArea.style.backgroundSize = 'cover';
-                playArea.style.backgroundPosition = 'center';
-                playArea.style.backgroundRepeat = 'no-repeat';
-            }
-        };
-        img.src = url;
+        setBackdropUrl(url);
         setBackdropLibraryOpen(false);
     };
 
     const handleBackdropUpload = (dataUrl) => {
         setTheme(true);
-        const playArea = document.querySelector('.moves.play');
-        if (playArea) {
-            playArea.style.backgroundImage = `url(${dataUrl})`;
-            playArea.style.backgroundSize = 'cover';
-            playArea.style.backgroundPosition = 'center';
-            playArea.style.backgroundRepeat = 'no-repeat';
-        }
+        setBackdropUrl(dataUrl);
         setBackdropLibraryOpen(false);
     };
 
     const handleBackdropDelete = () => {
         setTheme(false);
-        const playArea = document.querySelector('.moves.play');
-        if (playArea) {
-            playArea.style.backgroundImage = 'none';
-            playArea.style.backgroundSize = 'auto';
-            playArea.style.backgroundPosition = 'center';
-            playArea.style.backgroundRepeat = 'no-repeat';
-        }
+        setBackdropUrl(null);
         setBackdropLibraryOpen(false);
     };
 
@@ -1285,52 +1115,28 @@ export const EventBody = (props) => {
             horizontal: { show: false, position: 0 }
         };
 
-        // Check center alignment
         const draggedCenterX = draggedRect.left + draggedRect.width / 2;
         const otherCenterX = otherRect.left + otherRect.width / 2;
         const draggedCenterY = draggedRect.top + draggedRect.height / 2;
         const otherCenterY = otherRect.top + otherRect.height / 2;
 
-        // Vertical center alignment
         if (Math.abs(draggedCenterX - otherCenterX) < ALIGNMENT_THRESHOLD) {
-            guides.vertical = {
-                show: true,
-                position: otherCenterX
-            };
+            guides.vertical = { show: true, position: otherCenterX };
         }
-
-        // Horizontal center alignment
         if (Math.abs(draggedCenterY - otherCenterY) < ALIGNMENT_THRESHOLD) {
-            guides.horizontal = {
-                show: true,
-                position: otherCenterY
-            };
+            guides.horizontal = { show: true, position: otherCenterY };
         }
-
-        // Edge alignments
         if (Math.abs(draggedRect.left - otherRect.left) < ALIGNMENT_THRESHOLD) {
-            guides.vertical = {
-                show: true,
-                position: otherRect.left
-            };
+            guides.vertical = { show: true, position: otherRect.left };
         }
         if (Math.abs(draggedRect.right - otherRect.right) < ALIGNMENT_THRESHOLD) {
-            guides.vertical = {
-                show: true,
-                position: otherRect.right
-            };
+            guides.vertical = { show: true, position: otherRect.right };
         }
         if (Math.abs(draggedRect.top - otherRect.top) < ALIGNMENT_THRESHOLD) {
-            guides.horizontal = {
-                show: true,
-                position: otherRect.top
-            };
+            guides.horizontal = { show: true, position: otherRect.top };
         }
         if (Math.abs(draggedRect.bottom - otherRect.bottom) < ALIGNMENT_THRESHOLD) {
-            guides.horizontal = {
-                show: true,
-                position: otherRect.bottom
-            };
+            guides.horizontal = { show: true, position: otherRect.bottom };
         }
 
         return guides;
@@ -1344,10 +1150,8 @@ export const EventBody = (props) => {
     };
 
     useEffect(() => {
-        // Initialize audio context on first user interaction
         const handleFirstInteraction = () => {
             initAudio();
-            // Remove the event listeners after first interaction
             document.removeEventListener('click', handleFirstInteraction);
             document.removeEventListener('keydown', handleFirstInteraction);
             document.removeEventListener('touchstart', handleFirstInteraction);
@@ -1363,6 +1167,9 @@ export const EventBody = (props) => {
             document.removeEventListener('touchstart', handleFirstInteraction);
         };
     }, []);
+
+    // Clean up any pending timers when the component unmounts.
+    useEffect(() => () => clearAllTimeouts(), []);
 
     // Helper to push actions to the queue
     const pushActionToQueue = (spriteId, type, value, actionName, metadata = {}) => {
@@ -1518,8 +1325,8 @@ export const EventBody = (props) => {
         if (actionQueue.length === 0) return;
         clearAllTimeouts();
 
-        const wasAnimatingBeforeReplay = isAnimating;
-        setIsAnimating(true);
+        const wasAnimatingBeforeReplay = isAnimatingRef.current;
+        setAnimating(true);
         setIsReplaying(true);
         setReplayIndex(-1);
         isReplayingRef.current = true;
@@ -1528,19 +1335,17 @@ export const EventBody = (props) => {
             safeSetTimeout(() => {
                 setReplayIndex(index);
                 runReplayAction(action);
-            }, index * 1000); // 1 second delay between actions
+            }, index * 1000);
         });
 
-        // Reset after all actions are replayed
         safeSetTimeout(() => {
             setIsReplaying(false);
             setReplayIndex(-1);
             isReplayingRef.current = false;
-            setIsAnimating(wasAnimatingBeforeReplay);
+            setAnimating(wasAnimatingBeforeReplay);
         }, actionQueue.length * 1000);
     };
 
-    // Function to handle pause/resume
     const handlePauseResume = () => {
         if (isReplaying) {
             clearAllTimeouts();
@@ -1552,7 +1357,6 @@ export const EventBody = (props) => {
         }
     };
 
-    // Function to clear history
     const handleClearHistory = () => {
         setActionQueue([]);
         clearAllTimeouts();
@@ -1565,14 +1369,14 @@ export const EventBody = (props) => {
         <div className='mainContainer'>
             <ToastContainer />
             <div className="container">
-                <CategorySidebar 
+                <CategorySidebar
                     activeCategory={activeCategory}
                     onCategoryClick={handleCategoryClick}
                 />
-                <Droppable droppableId="MovesList">
+                <Droppable droppableId="MovesList" isDropDisabled={true}>
                     {(provided) => (
-                        <div 
-                            className="moves" 
+                        <div
+                            className="moves"
                             ref={(el) => {
                                 provided.innerRef(el);
                                 if (el) movesContainerRef.current = el;
@@ -1598,35 +1402,35 @@ export const EventBody = (props) => {
 
                 <Droppable droppableId="MovesActions">
                     {(provided) => (
-                    <div 
-                        className="moves actions"
-                        ref={provided.innerRef} 
-                        {...provided.droppableProps}
-                    >
-                        <span className='moves__heading'>
-                            Action
-                        </span>
-                         {actions?.map((move, index) => (
-                            <SingleAction
-                                index={index}
-                                moves={actions}
-                                move={move}
-                                key={move.id}
-                                refresh={refresh}
-                                setMoves={setActions}
-                            />
-                        ))}
-                        {provided.placeholder}
-                    </div>
+                        <div
+                            className="moves actions"
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                        >
+                            <span className='moves__heading'>
+                                Action
+                            </span>
+                            {actions?.map((move, index) => (
+                                <SingleAction
+                                    index={index}
+                                    moves={actions}
+                                    move={move}
+                                    key={move.id}
+                                    refresh={refresh}
+                                    setMoves={setActions}
+                                />
+                            ))}
+                            {provided.placeholder}
+                        </div>
                     )}
                 </Droppable>
 
                 {!displayAddIcon && (
                     <Droppable droppableId="MovesActions2">
                         {(provided) => (
-                            <div 
+                            <div
                                 className="moves actions"
-                                ref={provided.innerRef} 
+                                ref={provided.innerRef}
                                 {...provided.droppableProps}
                             >
                                 <span className='moves__heading'>
@@ -1648,9 +1452,10 @@ export const EventBody = (props) => {
                     </Droppable>
                 )}
 
-                <div className="moves play" 
+                <div className="moves play"
                     style={{
                         background: theme ? 'none' : 'white',
+                        backgroundImage: theme && backdropUrl ? `url(${backdropUrl})` : 'none',
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                         backgroundRepeat: 'no-repeat',
@@ -1660,7 +1465,7 @@ export const EventBody = (props) => {
                 >
                     {/* Collision Effects */}
                     {collisionEffects.ripple && (
-                        <div 
+                        <div
                             className="collision-ripple"
                             style={{
                                 left: collisionEffects.position.x,
@@ -1670,7 +1475,7 @@ export const EventBody = (props) => {
                         />
                     )}
                     {collisionEffects.soundWave && (
-                        <div 
+                        <div
                             className="sound-wave"
                             style={{
                                 left: collisionEffects.position.x,
@@ -1696,7 +1501,7 @@ export const EventBody = (props) => {
                         <div>Result: {operatorResult ?? '--'}</div>
                     </div>
                     {collisionEffects.swapArrows && (
-                        <div 
+                        <div
                             className="swap-arrows"
                             style={{
                                 left: collisionEffects.position.x,
@@ -1705,100 +1510,100 @@ export const EventBody = (props) => {
                             }}
                         />
                     )}
-                    <AlignmentGuide 
-                        show={alignmentGuides.vertical.show} 
-                        position={alignmentGuides.vertical.position} 
-                        type="vertical" 
+                    <AlignmentGuide
+                        show={alignmentGuides.vertical.show}
+                        position={alignmentGuides.vertical.position}
+                        type="vertical"
                     />
-                    <AlignmentGuide 
-                        show={alignmentGuides.horizontal.show} 
-                        position={alignmentGuides.horizontal.position} 
-                        type="horizontal" 
+                    <AlignmentGuide
+                        show={alignmentGuides.horizontal.show}
+                        position={alignmentGuides.horizontal.position}
+                        type="horizontal"
                     />
-                    <div style={{display:'flex', flexDirection:"row"}}> 
-                        <Draggable1 bounds={{left: -540, top: -250, right:540, bottom:250}}
+                    <div style={{ display: 'flex', flexDirection: "row" }}>
+                        <Draggable1 bounds={{ left: -540, top: -250, right: 540, bottom: 250 }}
                             onDrag={(e, data) => handleDrag(e, data, true)}
                             onStop={handleDragStop}
                         >
                             <div ref={ref} style={{
-                                position:'relative',
-                                transition:'1s all ease',
+                                position: 'relative',
+                                transition: '1s all ease',
                                 visibility: sprite1Visible ? 'visible' : 'hidden'
                             }}
                                 onMouseEnter={() => setActiveSprite(1)}
                             >
-                            {hello ?
-                                <div style={{transition:"0s all ease"}} className='msgPopup'>
-                                    {currentAction === 'Say Hello for 5 sec' ? 'hello!' :
-                                     currentAction === 'Say Bye' ? 'bye!' :
-                                     currentAction === 'Say Hii' ? 'hii!' : ''}
-                                </div>
-                                : null
-                            }
-                            {think ?
-                                <div style={{transition:"0s all ease"}} className='thinkPopup'>
-                                    {currentAction === 'Think Hmmm for 3 sec' ? 'hmmm...' :
-                                     currentAction === 'Think See you' ? 'see you...' : ''}
-                                </div>
-                                : null
-                            }
-                            <img 
-                                src={sprite.toString()}
-                                alt="Sprite 1"
-                                draggable='false'
-                                className={isColliding ? 'sprite-colliding' : ''}
-                                style={{
-                                    cursor:"pointer",
-                                    position:'relative',
-                                    height:200, 
-                                    width:200,
-                                    transition: '1s all ease'
-                                }}
-                            />
+                                {hello ?
+                                    <div style={{ transition: "0s all ease" }} className='msgPopup'>
+                                        {currentAction === 'Say Hello for 5 sec' ? 'hello!' :
+                                            currentAction === 'Say Bye' ? 'bye!' :
+                                                currentAction === 'Say Hii' ? 'hii!' : ''}
+                                    </div>
+                                    : null
+                                }
+                                {think ?
+                                    <div style={{ transition: "0s all ease" }} className='thinkPopup'>
+                                        {currentAction === 'Think Hmmm for 3 sec' ? 'hmmm...' :
+                                            currentAction === 'Think See you' ? 'see you...' : ''}
+                                    </div>
+                                    : null
+                                }
+                                <img
+                                    src={sprite.toString()}
+                                    alt="Sprite 1"
+                                    draggable='false'
+                                    className={isColliding ? 'sprite-colliding' : ''}
+                                    style={{
+                                        cursor: "pointer",
+                                        position: 'relative',
+                                        height: 200,
+                                        width: 200,
+                                        transition: '1s all ease'
+                                    }}
+                                />
                             </div>
                         </Draggable1>
-                        {!displayAddIcon && 
-                        <Draggable1 bounds={{left: -540, top: -250, right:540, bottom:250}}
-                            onDrag={(e, data) => handleDrag(e, data, false)}
-                            onStop={handleDragStop}
-                        >
-                            <div ref={ref2} style={{
-                                position:'relative',
-                                transition:'1s all ease',
-                                visibility: sprite2Visible ? 'visible' : 'hidden'
-                            }}
-                                onMouseEnter={() => setActiveSprite(2)}
+                        {!displayAddIcon &&
+                            <Draggable1 bounds={{ left: -540, top: -250, right: 540, bottom: 250 }}
+                                onDrag={(e, data) => handleDrag(e, data, false)}
+                                onStop={handleDragStop}
                             >
-                            {hello2 ?
-                                <div style={{transition:"0s all ease"}} className='msgPopup'>
-                                    {currentAction === 'Say Hello for 5 sec' ? 'hello!' :
-                                     currentAction === 'Say Bye' ? 'bye!' :
-                                     currentAction === 'Say Hii' ? 'hii!' : ''}
-                                </div>
-                                : null
-                            }
-                            {think2 ?
-                                <div style={{transition:"0s all ease"}} className='thinkPopup'>
-                                    {currentAction === 'Think Hmmm for 3 sec' ? 'hmmm...' :
-                                     currentAction === 'Think See you' ? 'see you...' : ''}
-                                </div>
-                                : null
-                            }
-                            <img 
-                                src={sprite2 ? sprite2.toString() : ''}
-                                alt="Sprite 2" 
-                                draggable='false'
-                                className={isColliding ? 'sprite-colliding' : ''}
-                                style={{
-                                    cursor:"pointer",
-                                    position:'relative',
-                                    height:200, 
-                                    width:200,
-                                    transition: '1s all ease'
+                                <div ref={ref2} style={{
+                                    position: 'relative',
+                                    transition: '1s all ease',
+                                    visibility: sprite2Visible ? 'visible' : 'hidden'
                                 }}
-                            />
-                            </div>
-                        </Draggable1>}
+                                    onMouseEnter={() => setActiveSprite(2)}
+                                >
+                                    {hello2 ?
+                                        <div style={{ transition: "0s all ease" }} className='msgPopup'>
+                                            {currentAction === 'Say Hello for 5 sec' ? 'hello!' :
+                                                currentAction === 'Say Bye' ? 'bye!' :
+                                                    currentAction === 'Say Hii' ? 'hii!' : ''}
+                                        </div>
+                                        : null
+                                    }
+                                    {think2 ?
+                                        <div style={{ transition: "0s all ease" }} className='thinkPopup'>
+                                            {currentAction === 'Think Hmmm for 3 sec' ? 'hmmm...' :
+                                                currentAction === 'Think See you' ? 'see you...' : ''}
+                                        </div>
+                                        : null
+                                    }
+                                    <img
+                                        src={sprite2 ? sprite2.toString() : ''}
+                                        alt="Sprite 2"
+                                        draggable='false'
+                                        className={isColliding ? 'sprite-colliding' : ''}
+                                        style={{
+                                            cursor: "pointer",
+                                            position: 'relative',
+                                            height: 200,
+                                            width: 200,
+                                            transition: '1s all ease'
+                                        }}
+                                    />
+                                </div>
+                            </Draggable1>}
                     </div>
                     <div className="playground-toolbar" style={{
                         position: 'absolute',
@@ -1813,61 +1618,104 @@ export const EventBody = (props) => {
                         borderRadius: '8px',
                         boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
                     }}>
-                        <div className="icon">
-                            <PlayArrowIcon sx={{color:'gray', cursor:'pointer', fontSize:'30px'}} onClick={handlePlay}/>
+                        <button type="button" className="icon toolbar-button" onClick={handlePlay} aria-label="Play actions">
+                            <PlayArrowIcon sx={{ color: 'gray', fontSize: '30px' }} />
                             <span className="tooltiptext">play</span>
-                        </div>
-                        <div className="icon">
-                            <RefreshIcon sx={{color:'gray', cursor:'pointer', fontSize:'30px'}} onClick={refresh}/>
+                        </button>
+                        <button type="button" className="icon toolbar-button" onClick={() => refresh()} aria-label="Reset stage">
+                            <RefreshIcon sx={{ color: 'gray', fontSize: '30px' }} />
                             <span className="tooltiptext">refresh</span>
-                        </div>
-                        <div><DeleteIcon onClick={()=>{setActions([]); setActions2([])}} sx={{cursor:'pointer', fontSize:'30px',color:'Grey'}}/></div>
-                        <div className="icon">
-                            {displayAddIcon ? (
-                                <AddBoxIcon sx={{color:'gray', cursor:'pointer'}} onClick={()=>{
-                                    setDisplayAddIcon(!displayAddIcon);
+                        </button>
+                        <button
+                            type="button"
+                            className="toolbar-button"
+                            onClick={() => { setActions([]); setActions2([]); }}
+                            aria-label="Clear all action blocks"
+                        >
+                            <DeleteIcon sx={{ fontSize: '30px', color: 'Grey' }} />
+                        </button>
+                        <button
+                            type="button"
+                            className="icon toolbar-button"
+                            aria-label={displayAddIcon ? 'Add second sprite' : 'Remove second sprite'}
+                            onClick={() => {
+                                if (displayAddIcon) {
+                                    setDisplayAddIcon(false);
                                     setSprite2(jerryImage);
-                                    refresh();
-                                }}/>
-                            ) : (
-                                <DisabledByDefaultIcon sx={{color:'gray', cursor:'pointer'}} onClick={()=>{
-                                    setDisplayAddIcon(!displayAddIcon);
+                                } else {
+                                    setDisplayAddIcon(true);
                                     setSprite2(null);
-                                    refresh();
-                                }}/>
+                                }
+                                refresh();
+                            }}
+                        >
+                            {displayAddIcon ? (
+                                <AddBoxIcon sx={{ color: 'gray' }} />
+                            ) : (
+                                <DisabledByDefaultIcon sx={{ color: 'gray' }} />
                             )}
                             <span className="tooltiptext">{displayAddIcon ? 'add sprite' : 'remove sprite'}</span>
-                        </div>
-                        <div className="icon">
-                            <PetsIcon 
-                                sx={{color:'gray', cursor:'pointer', fontSize:'30px'}} 
-                                onClick={() => {
-                                    setActiveSprite(displayAddIcon ? 1 : 2);
-                                    setSpriteLibraryOpen(true);
-                                }}
-                            />
+                        </button>
+                        <button
+                            type="button"
+                            className="icon toolbar-button"
+                            aria-label="Open sprite library"
+                            onClick={() => {
+                                setActiveSprite(displayAddIcon ? 1 : 2);
+                                setSpriteLibraryOpen(true);
+                            }}
+                        >
+                            <PetsIcon sx={{ color: 'gray', fontSize: '30px' }} />
                             <span className="tooltiptext">sprite library</span>
-                        </div>
-                        <div className="icon">
-                            <LandscapeIcon 
-                                sx={{color:'gray', cursor:'pointer', fontSize:'30px'}} 
-                                onClick={() => setBackdropLibraryOpen(true)}
-                            />
+                        </button>
+                        <button
+                            type="button"
+                            className="icon toolbar-button"
+                            aria-label="Open backdrop library"
+                            onClick={() => setBackdropLibraryOpen(true)}
+                        >
+                            <LandscapeIcon sx={{ color: 'gray', fontSize: '30px' }} />
                             <span className="tooltiptext">backdrop library</span>
-                        </div>
-                        <div className="icon">
-                            <FaChartBar 
-                                style={{ color: 'gray', cursor: 'pointer', fontSize: '30px' }} 
-                                onClick={() => setShowAnalytics(true)}
-                                title="View Analytics"
-                            />
+                        </button>
+                        <button
+                            type="button"
+                            className="icon toolbar-button"
+                            aria-label="View analytics"
+                            onClick={() => setShowAnalytics(true)}
+                        >
+                            <FaChartBar style={{ color: 'gray', fontSize: '30px' }} />
                             <span className="tooltiptext">analytics</span>
-                        </div>
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <LibraryModal 
+            <Dialog open={coordDialogOpen} onClose={handleCoordCancel} aria-labelledby="coord-dialog-title">
+                <DialogTitle id="coord-dialog-title">Go to coordinates</DialogTitle>
+                <DialogContent>
+                    <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                        <TextField
+                            label="X (-290 to 290)"
+                            type="number"
+                            value={coordInput.x}
+                            onChange={(e) => setCoordInput((prev) => ({ ...prev, x: e.target.value }))}
+                            autoFocus
+                        />
+                        <TextField
+                            label="Y (-140 to 140)"
+                            type="number"
+                            value={coordInput.y}
+                            onChange={(e) => setCoordInput((prev) => ({ ...prev, y: e.target.value }))}
+                        />
+                    </div>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={handleCoordCancel}>Cancel</Button>
+                    <Button onClick={handleCoordSubmit} variant="contained">Confirm</Button>
+                </DialogActions>
+            </Dialog>
+
+            <LibraryModal
                 open={spriteLibraryOpen}
                 onClose={() => setSpriteLibraryOpen(false)}
                 type="sprite"
@@ -1877,7 +1725,7 @@ export const EventBody = (props) => {
                 currentItem={activeSprite === 1 ? sprite : sprite2}
             />
 
-            <LibraryModal 
+            <LibraryModal
                 open={backdropLibraryOpen}
                 onClose={() => setBackdropLibraryOpen(false)}
                 type="backdrop"

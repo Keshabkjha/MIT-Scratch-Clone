@@ -1,32 +1,31 @@
 import React from "react";
 import DeleteIcon from '@mui/icons-material/Delete';
 import './styles.css';
-import { Draggable } from "react-beautiful-dnd";
+import { Draggable } from "@hello-pangea/dnd";
 import { CATEGORIES } from "../constants";
 import Tooltip from '@mui/material/Tooltip';
 
 export const SingleAction = (props) => {
-  const { move, moves, setMoves, index, disableDelete=false, refresh} = props;
+  const { move, setMoves, index, disableDelete = false, refresh } = props;
 
   const handleDelete = (idx) => {
-    let active = moves;
-    active.splice(idx, 1);
-    let arr = [];
-    setMoves(arr.concat(active));
-    // Call refresh to reset all states and positions
+    // Immutable update: never mutate the array we were handed via props.
+    setMoves((prev) => prev.filter((_, i) => i !== idx));
+    // Reset all states and positions after a block is removed.
     if (refresh) {
       refresh();
     }
   };
 
   const getActionDescription = (todo) => {
-    switch(todo) {
+    switch (todo) {
       case 'Move 50 steps': return 'Move sprite forward by 50 steps';
       case 'Move -50 steps': return 'Move sprite backward by 50 steps';
       case 'Move up 50 steps': return 'Move sprite upward by 50 steps';
       case 'Move down 50 steps': return 'Move sprite downward by 50 steps';
       case 'Go to x: 0 y: 0': return 'Move sprite to center position (coordinates 0,0)';
       case 'Go to coordinates': return 'Move sprite to specified X,Y coordinates';
+      case 'turn 45 degrees': return 'Rotate sprite by 45 degrees clockwise';
       case 'turn 360 degrees': return 'Rotate sprite in a full circle (360 degrees)';
       case 'turn 90 degrees': return 'Rotate sprite by 90 degrees clockwise';
       case 'turn 135 degrees': return 'Rotate sprite by 135 degrees clockwise';
@@ -67,53 +66,39 @@ export const SingleAction = (props) => {
     }
   };
 
-  const actionBlock = (
-    <div 
-      className="moves__single"
-      style={{
-        backgroundColor: CATEGORIES[move.category]
-      }}
-      role="button"
-      aria-label={getActionDescription(move.todo)}
-    >
-      <Tooltip 
-        title={getActionDescription(move.todo)}
-        placement="right"
-        arrow
-      >
-        <span className="moves__single--text">{move.todo}</span>
-      </Tooltip>
-      {!disableDelete && (
-        <div>
-          <span 
-            className="icon" 
-            onClick={() => handleDelete(index)}
-            role="button"
-            aria-label="Delete action"
-          >
-            <DeleteIcon sx={{":hover":{cursor:'pointer'}}} />
-          </span>
-        </div>
-      )}
-    </div>
-  );
+  const description = getActionDescription(move.todo);
 
   return (
-    <div>  
-      {disableDelete ? (
-        <Draggable key={move.id} draggableId={move.id.toString()} index={index}>
-          {(provided) => (
-            <div 
-              {...provided.draggableProps}    
-              {...provided.dragHandleProps} 
-              ref={provided.innerRef}
-            >
-              {actionBlock}
-            </div>
-          )}
-        </Draggable>
-      ) : actionBlock}
-    </div>
+    <Draggable key={move.id} draggableId={move.id.toString()} index={index}>
+      {(provided) => (
+        <div
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+          ref={provided.innerRef}
+        >
+          <div
+            className="moves__single"
+            style={{ backgroundColor: CATEGORIES[move.category] }}
+            role="button"
+            aria-label={description}
+          >
+            <Tooltip title={description} placement="right" arrow>
+              <span className="moves__single--text">{move.todo}</span>
+            </Tooltip>
+            {!disableDelete && (
+              <button
+                type="button"
+                className="icon moves__single--delete"
+                onClick={() => handleDelete(index)}
+                aria-label={`Delete action: ${move.todo}`}
+              >
+                <DeleteIcon />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </Draggable>
   );
 };
 
