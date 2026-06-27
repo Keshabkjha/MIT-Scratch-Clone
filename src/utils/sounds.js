@@ -57,9 +57,7 @@ export const initAudio = () => {
 
     // Resume audio context if it's in suspended state
     if (audioContext.state === 'suspended') {
-        audioContext.resume().then(() => {
-            console.log('Audio context resumed successfully');
-        }).catch(error => {
+        audioContext.resume().catch(error => {
             console.error('Failed to resume audio context:', error);
         });
     }
@@ -96,8 +94,6 @@ const loadAudioBuffer = async (url) => {
 };
 
 export const playSound = async (soundId, volume = 1) => {
-    console.log('Attempting to play sound:', soundId, 'with volume:', volume);
-    
     const sound = SOUNDS[soundId];
     if (!sound) {
         console.error('Sound not found:', soundId);
@@ -117,7 +113,6 @@ export const playSound = async (soundId, volume = 1) => {
     if (audioContext.state === 'suspended') {
         try {
             await audioContext.resume();
-            console.log('Audio context resumed');
         } catch (error) {
             console.error('Failed to resume audio context:', error);
             return;
@@ -142,13 +137,11 @@ export const playSound = async (soundId, volume = 1) => {
         
         // Start playing
         source.start(0);
-        console.log('Sound started playing:', soundId);
         
         // Stop the sound after its duration
         setTimeout(() => {
             try {
                 source.stop();
-                console.log('Sound stopped:', soundId);
             } catch (error) {
                 // Ignore errors when stopping already stopped sources
             }
